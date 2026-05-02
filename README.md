@@ -21,11 +21,12 @@
     - [TODOs](#todos)
     - [Milestone 1 — Environment Setup](#milestone-1--environment-setup)
     - [Milestone 2 — TF Tree \& URDF](#milestone-2--tf-tree--urdf)
-    - [Milestone 3 — Teleoperation](#milestone-3--teleoperation)
-    - [Milestone 4 — SLAM Integration (slam\_toolbox)](#milestone-4--slam-integration-slam_toolbox)
-    - [Milestone 5 — Parameter Tuning \& Evaluation](#milestone-5--parameter-tuning--evaluation)
-    - [Milestone 6 — Stretch: Cartographer](#milestone-6--stretch-cartographer)
-    - [Milestone 7 — Stretch: IMU Fusion](#milestone-7--stretch-imu-fusion)
+    - [Milestone 3 — Calibration](#milestone-3--calibration)
+    - [Milestone 4 — Teleoperation](#milestone-4--teleoperation)
+    - [Milestone 5 — SLAM Integration (slam\_toolbox)](#milestone-5--slam-integration-slam_toolbox)
+    - [Milestone 6 — Parameter Tuning \& Evaluation](#milestone-6--parameter-tuning--evaluation)
+    - [Milestone 7 — Stretch: Cartographer](#milestone-7--stretch-cartographer)
+    - [Milestone 8 — Stretch: IMU Fusion](#milestone-8--stretch-imu-fusion)
   - [Directory Structure](#directory-structure)
   - [Getting Started](#getting-started)
   - [Known Limitations \& Future Extensions](#known-limitations--future-extensions)
@@ -156,7 +157,7 @@ Vendor / platform packages (provided by HiWonder):
 - **ROS 2 Topics & Nodes** — publisher/subscriber pattern for sensor data
 - **TF2 Transform Tree** — `map → odom → base_link → laser` chain
 - **Occupancy Grid** (`nav_msgs/OccupancyGrid`) — probabilistic map representation
-- **SLAM** — Simultaneous Localisation and Mapping (`slam_toolbox` or Cartographer)
+- **SLAM** — Simultaneous Localisation and Mapping (`slam_toolbox`)
 - **Odometry** (`nav_msgs/Odometry`) — dead-reckoning from wheel encoders
 - **Launch Files** — composing multi-node systems declaratively (Python-based in ROS 2)
 - **RViz2 Configuration** — custom `.rviz` files for repeatable visualisation
@@ -172,6 +173,8 @@ Vendor / platform packages (provided by HiWonder):
 ### Milestone 1 — Environment Setup
 - [ ] Confirm Ubuntu 22.04 + ROS 2 Humble is running on the Jetson Orin Nano
 - [ ] Clone this repository into `~/ros2_ws/src/`
+- [ ] Disable the HiWonder auto-start service before any development session:
+      `sudo systemctl stop start_app_node.service`
 - [ ] Verify JetRover bringup launches without errors
 - [ ] Confirm `/scan` topic publishes LiDAR data (`ros2 topic echo /scan`)
 - [ ] Confirm `/odom` topic publishes odometry data (`ros2 topic echo /odom`)
@@ -182,28 +185,36 @@ Vendor / platform packages (provided by HiWonder):
 - [ ] Visualise TF tree using `ros2 run tf2_tools view_frames`
 - [ ] Confirm `base_link → laser` static transform is correct
 
-### Milestone 3 — Teleoperation
-- [ ] Drive robot with `ros2 run teleop_twist_keyboard teleop_twist_keyboard`
-- [ ] Confirm `/cmd_vel` commands move the physical robot
-- [ ] Tune linear/angular speed limits in config
+### Milestone 3 — Calibration
+- [ ] Run IMU calibration per HiWonder tutorial section 2.5
+- [ ] Run linear velocity and angular velocity calibration
+- [ ] Verify calibration reduces odometry drift before proceeding to SLAM
 
-### Milestone 4 — SLAM Integration (slam_toolbox)
+### Milestone 4 — Teleoperation
+- [ ] Drive robot with `ros2 launch peripherals teleop_key_control.launch.py`
+- [ ] Confirm `/cmd_vel` commands move the physical robot
+- [ ] Tune linear/angular speed limits in config (reduce speed for mapping sessions)
+
+### Milestone 5 — SLAM Integration (slam_toolbox)
+- [ ] Stop auto-start service (`sudo systemctl stop start_app_node.service`)
 - [ ] Launch `slam_toolbox` in online async mode
 - [ ] Open RViz2 and add `/map` and `/scan` displays
 - [ ] Drive robot around room and observe map building in real time
-- [ ] Save map with `ros2 run nav2_map_server map_saver_cli -f ~/maps/room_map`
+- [ ] Save map with the correct command (note the required `--ros-args` flag):
+      `ros2 run nav2_map_server map_saver_cli -f "room_map" --ros-args -p map_subscribe_transient_local:=true`
+- [ ] Verify map is saved to `~/ros2_ws/src/slam/maps/` (HiWonder default path)
 
-### Milestone 5 — Parameter Tuning & Evaluation
+### Milestone 6 — Parameter Tuning & Evaluation
 - [ ] Compare maps from multiple runs; identify drift or artefacts
 - [ ] Tune key `slam_toolbox` params (`resolution`, `minimum_travel_distance`, `minimum_travel_heading`)
 - [ ] Document best-performing parameter set in `config/slam_toolbox_params.yaml`
 
-### Milestone 6 — Stretch: Cartographer
+### Milestone 7 — Stretch: Cartographer
 - [ ] Replace `slam_toolbox` with `cartographer_ros`
 - [ ] Write Cartographer `.lua` configuration file
 - [ ] Compare map quality vs `slam_toolbox`; document findings
 
-### Milestone 7 — Stretch: IMU Fusion
+### Milestone 8 — Stretch: IMU Fusion
 - [ ] Launch `imu_filter_madgwick` to fuse IMU + odometry
 - [ ] Verify improved localisation on slippery (hard) floor surfaces
 
@@ -253,26 +264,30 @@ room-mapping-explorer/
 # 1. SSH into the Jetson
 ssh jetson@<JETROVER_IP> #TODO
 
-# 2. Clone the repo
+# 2. Disable HiWonder auto-start service (required before any dev session)
+sudo systemctl stop start_app_node.service
+
+# 3. Clone the repo
 cd ~/ros2_ws/src
 git clone https://github.com/<your-username>/room-mapping-explorer.git #TODO
 
-# 3. Install dependencies
+# 4. Install dependencies
 cd ~/ros2_ws
 rosdep install --from-paths src --ignore-src -r -y
 
-# 4. Build
+# 5. Build
 colcon build --symlink-install
 source install/setup.bash
 
-# 5. Launch mapping session
+# 6. Launch mapping session
 ros2 launch room-mapping-explorer mapping.launch.py
 
-# 6. In a new terminal — drive the robot
-ros2 launch room-mapping-explorer teleop.launch.py
+# 7. In a new terminal — drive the robot
+ros2 launch peripherals teleop_key_control.launch.py
 
-# 7. When done, save the map
-ros2 run nav2_map_server map_saver_cli -f ~/ros2_ws/src/room-mapping-explorer/maps/room_map
+# 8. When done, save the map (--ros-args flag required to avoid map saver hanging)
+ros2 run nav2_map_server map_saver_cli -f "room_map" --ros-args -p map_subscribe_transient_local:=true
+# Maps are saved to ~/ros2_ws/src/slam/maps/ by default
 ```
 
 ---
@@ -289,7 +304,7 @@ ros2 run nav2_map_server map_saver_cli -f ~/ros2_ws/src/room-mapping-explorer/ma
 - **Autonomous Navigation** — use the saved map with `nav2` for
   point-to-point navigation (Project #2 in the series)
 - **Frontier Exploration** — autonomous coverage using `explore_lite`
-- **3-D Mapping** — integrate the RealSense D435 with `rtabmap_ros`
+- **3-D Mapping** — integrate the Dabai DCW depth camera with `rtabmap_ros` (RTAB-VSLAM, already supported by HiWonder)
 - **Multi-floor** — elevator / staircase traversal and map stitching
 
 ---
