@@ -70,67 +70,49 @@ Constraints:
 
 ## Goals & Success Criteria
 
-| # | Goal | Success Criterion |
-|---|------|-------------------|
-| 1 | Real-time SLAM | Occupancy grid updates at ≥ 1 Hz in RViz with no noticeable lag |
-| 2 | Accurate map | Walls and obstacles visible as solid cells; free space clearly distinct |
-| 3 | Full room coverage | ≥ 90 % of the drivable floor area mapped in a single session |
-| 4 | Map persistence | Saved `.pgm` / `.yaml` pair loadable by `map_server` |
-| 5 | TF tree correct | `odom → base_link → laser` transform chain resolves without errors |
-| 6 | IMU fusion (stretch) | Fusing IMU data reduces odometry drift on hard-floor surfaces |
+| #   | Goal                 | Success Criterion                                                       |
+| --- | -------------------- | ----------------------------------------------------------------------- |
+| 1   | Real-time SLAM       | Occupancy grid updates at ≥ 1 Hz in RViz with no noticeable lag         |
+| 2   | Accurate map         | Walls and obstacles visible as solid cells; free space clearly distinct |
+| 3   | Full room coverage   | ≥ 90 % of the drivable floor area mapped in a single session            |
+| 4   | Map persistence      | Saved `.pgm` / `.yaml` pair loadable by `map_server`                    |
+| 5   | TF tree correct      | `odom → base_link → laser` transform chain resolves without errors      |
+| 6   | IMU fusion (stretch) | Fusing IMU data reduces odometry drift on hard-floor surfaces           |
 
 ---
 
 ## System Architecture
 
-```
-┌──────────────────────────────────────────────────────────────────┐
-│                         JetRover (Jetson)                        │
-│                                                                  │
-│  ┌─────────┐   /scan    ┌──────────────┐   /map   ┌──────────┐  │
-│  │  LiDAR  │──────────▶│  SLAM Node   │─────────▶│  RViz    │  │
-│  │ Driver  │           │ (gmapping or │          │  (viz)   │  │
-│  └─────────┘           │ cartographer)│          └──────────┘  │
-│                         └──────┬───────┘                        │
-│  ┌─────────┐  /odom            │ /tf                            │
-│  │  Motor  │──────────────────▶│                                │
-│  │  Driver │                   ▼                                │
-│  └─────────┘           ┌──────────────┐                         │
-│                         │ map_saver   │──▶ map.pgm / map.yaml   │
-│  ┌─────────┐  /imu      │             │                         │
-│  │  IMU    │──────────▶│             │                         │
-│  └─────────┘           └──────────────┘                         │
-└──────────────────────────────────────────────────────────────────┘
+![System Architecture Pipeline](docs/images/pipeline.svg)
 
-Teleop input (keyboard / joystick) ──▶ /cmd_vel ──▶ Motor Driver
-```
+> ✦ Stretch goal — IMU fusion is optional and not required for the MVP.
 
 ---
 
 ## Hardware Requirements
 
-| Component | Details |
-|-----------|---------|
-| Robot platform | HiWonder JetRover (Mecanum or Ackermann chassis) |
-| Compute | NVIDIA Jetson Nano / Orin Nano (onboard) |
-| LiDAR | JetRover built-in 2-D LiDAR (e.g. YDLiDAR or RPLIDAR) |
-| IMU | Onboard IMU (for odometry fusion — stretch goal) |
-| Depth camera | Intel RealSense D435 (available on platform; not used in MVP) |
-| Host PC | Ubuntu 20.04 / 22.04 machine for RViz visualisation (optional) |
-| Network | Wi-Fi or Ethernet for ROS master / SSH access |
+| Component      | Details                                                        |
+| -------------- | -------------------------------------------------------------- |
+| Robot platform | HiWonder JetRover (Mecanum or Ackermann chassis)               |
+| Compute        | NVIDIA Jetson Nano / Orin Nano (onboard)                       |
+| LiDAR          | JetRover built-in 2-D LiDAR (e.g. YDLiDAR or RPLIDAR)          |
+| IMU            | Onboard IMU (for odometry fusion — stretch goal)               |
+| Depth camera   | Intel RealSense D435 (available on platform; not used in MVP)  |
+| Host PC        | Ubuntu 20.04 / 22.04 machine for RViz visualisation (optional) |
+| Network        | Wi-Fi or Ethernet for ROS master / SSH access                  |
 
 ---
 
 ## Software Requirements
 
-| Software | Version | Notes |
-|----------|---------|-------|
-| Ubuntu | 20.04 LTS | On Jetson |
-| ROS | Noetic (ROS 1) | JetRover ships with ROS Noetic support |
-| Python | 3.8+ | ROS Noetic default |
-| C++ | 14 / 17 | For any custom nodes |
-| RViz | Noetic | Visualisation |
-| Git | 2.x | Version control |
+| Software | Version        | Notes                                  |
+| -------- | -------------- | -------------------------------------- |
+| Ubuntu   | 20.04 LTS      | On Jetson                              |
+| ROS      | Noetic (ROS 1) | JetRover ships with ROS Noetic support |
+| Python   | 3.8+           | ROS Noetic default                     |
+| C++      | 14 / 17        | For any custom nodes                   |
+| RViz     | Noetic         | Visualisation                          |
+| Git      | 2.x            | Version control                        |
 
 - [ ] TODO: Verify JetRover ROS distro/support details for this row.
 - [ ] TODO: Verify the Type of Lidar used in my Version of the JetRover.
