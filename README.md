@@ -22,7 +22,7 @@
     - [Milestone 1 — Environment Setup](#milestone-1--environment-setup)
     - [Milestone 2 — TF Tree \& URDF](#milestone-2--tf-tree--urdf)
     - [Milestone 3 — Teleoperation](#milestone-3--teleoperation)
-    - [Milestone 4 — SLAM Integration (gmapping)](#milestone-4--slam-integration-gmapping)
+    - [Milestone 4 — SLAM Integration (slam\_toolbox)](#milestone-4--slam-integration-slam_toolbox)
     - [Milestone 5 — Parameter Tuning \& Evaluation](#milestone-5--parameter-tuning--evaluation)
     - [Milestone 6 — Stretch: Cartographer](#milestone-6--stretch-cartographer)
     - [Milestone 7 — Stretch: IMU Fusion](#milestone-7--stretch-imu-fusion)
@@ -70,14 +70,14 @@ Constraints:
 
 ## Goals & Success Criteria
 
-| #   | Goal                 | Success Criterion                                                       |
-| --- | -------------------- | ----------------------------------------------------------------------- |
-| 1   | Real-time SLAM       | Occupancy grid updates at ≥ 1 Hz in RViz with no noticeable lag         |
-| 2   | Accurate map         | Walls and obstacles visible as solid cells; free space clearly distinct |
-| 3   | Full room coverage   | ≥ 90 % of the drivable floor area mapped in a single session            |
-| 4   | Map persistence      | Saved `.pgm` / `.yaml` pair loadable by `map_server`                    |
-| 5   | TF tree correct      | `odom → base_link → laser` transform chain resolves without errors      |
-| 6   | IMU fusion (stretch) | Fusing IMU data reduces odometry drift on hard-floor surfaces           |
+| # | Goal | Success Criterion |
+|---|------|-------------------|
+| 1 | Real-time SLAM | Occupancy grid updates at ≥ 1 Hz in RViz with no noticeable lag |
+| 2 | Accurate map | Walls and obstacles visible as solid cells; free space clearly distinct |
+| 3 | Full room coverage | ≥ 90 % of the drivable floor area mapped in a single session |
+| 4 | Map persistence | Saved `.pgm` / `.yaml` pair loadable by `map_server` |
+| 5 | TF tree correct | `odom → base_link → laser` transform chain resolves without errors |
+| 6 | IMU fusion (stretch) | Fusing IMU data reduces odometry drift on hard-floor surfaces |
 
 ---
 
@@ -91,34 +91,30 @@ Constraints:
 
 ## Hardware Requirements
 
-| Component      | Details                                                        |
-| -------------- | -------------------------------------------------------------- |
-| Robot platform | HiWonder JetRover (Mecanum or Ackermann chassis)               |
-| Compute        | NVIDIA Jetson Nano / Orin Nano (onboard)                       |
-| LiDAR          | JetRover built-in 2-D LiDAR (e.g. YDLiDAR or RPLIDAR)          |
-| IMU            | Onboard IMU (for odometry fusion — stretch goal)               |
-| Depth camera   | Intel RealSense D435 (available on platform; not used in MVP)  |
-| Host PC        | Ubuntu 20.04 / 22.04 machine for RViz visualisation (optional) |
-| Network        | Wi-Fi or Ethernet for ROS master / SSH access                  |
+| Component | Details |
+|-----------|---------|
+| Robot platform | HiWonder JetRover (Orin Nano Version) — Mecanum or Ackermann chassis |
+| Compute | NVIDIA Jetson Orin Nano (onboard) |
+| LiDAR | YDLiDAR G4 (default) or YDLiDAR A1 — confirm your unit's version via the config tool |
+| IMU | Onboard IMU (for odometry fusion — stretch goal) |
+| Depth camera | 3D depth camera (available on platform; not used in MVP) |
+| Host PC | Ubuntu 22.04 machine for RViz visualisation (optional) |
+| Network | Wi-Fi or Ethernet for SSH access |
 
 ---
 
 ## Software Requirements
 
-| Software | Version        | Notes                                  |
-| -------- | -------------- | -------------------------------------- |
-| Ubuntu   | 20.04 LTS      | On Jetson                              |
-| ROS      | Noetic (ROS 1) | JetRover ships with ROS Noetic support |
-| Python   | 3.8+           | ROS Noetic default                     |
-| C++      | 14 / 17        | For any custom nodes                   |
-| RViz     | Noetic         | Visualisation                          |
-| Git      | 2.x            | Version control                        |
+| Software | Version | Notes |
+|----------|---------|-------|
+| Ubuntu | 22.04 LTS | Pre-installed on Jetson Orin Nano |
+| ROS | ROS 2 Humble | Natively installed (not Docker) on Orin Nano version |
+| Python | 3.10+ | ROS 2 Humble default |
+| C++ | 17 | For any custom nodes |
+| RViz2 | Humble | Visualisation |
+| Git | 2.x | Version control |
 
-- [ ] TODO: Verify JetRover ROS distro/support details for this row.
-- [ ] TODO: Verify the Type of Lidar used in my Version of the JetRover.
-
-> **Note:** If migrating to ROS 2, replace gmapping with `slam_toolbox` and
-> `nav2_map_server`; the concepts remain identical.
+> **Note:** The Orin Nano version ships with **ROS 2 Humble** natively on Ubuntu 22.04 — no Docker required. The older Jetson Nano version uses ROS 1 Noetic. All commands and packages in this README are ROS 2.
 
 ---
 
@@ -126,23 +122,26 @@ Constraints:
 
 ```bash
 # Core SLAM — choose one
-sudo apt install ros-noetic-gmapping          # particle-filter SLAM (simpler)
-sudo apt install ros-noetic-cartographer-ros  # graph-based SLAM (more accurate)
+sudo apt install ros-humble-slam-toolbox        # recommended for ROS 2 (replaces gmapping)
+sudo apt install ros-humble-cartographer-ros    # graph-based SLAM (more accurate, stretch goal)
 
 # Map saving & serving
-sudo apt install ros-noetic-map-server
+sudo apt install ros-humble-nav2-map-server
 
 # Teleoperation
-sudo apt install ros-noetic-teleop-twist-keyboard
+sudo apt install ros-humble-teleop-twist-keyboard
 
 # TF utilities
-sudo apt install ros-noetic-tf2-tools ros-noetic-tf2-ros
+sudo apt install ros-humble-tf2-tools ros-humble-tf2-ros
 
 # IMU filter (stretch goal)
-sudo apt install ros-noetic-imu-filter-madgwick
+sudo apt install ros-humble-imu-filter-madgwick
 
 # Visualisation
-sudo apt install ros-noetic-rviz
+sudo apt install ros-humble-rviz2
+
+# YDLiDAR driver
+sudo apt install ros-humble-ydlidar-ros2-driver
 ```
 
 Vendor / platform packages (provided by HiWonder):
@@ -154,14 +153,14 @@ Vendor / platform packages (provided by HiWonder):
 
 ## Key Concepts Covered
 
-- **ROS Topics & Nodes** — publisher/subscriber pattern for sensor data
+- **ROS 2 Topics & Nodes** — publisher/subscriber pattern for sensor data
 - **TF2 Transform Tree** — `map → odom → base_link → laser` chain
 - **Occupancy Grid** (`nav_msgs/OccupancyGrid`) — probabilistic map representation
-- **SLAM** — Simultaneous Localisation and Mapping (gmapping or Cartographer)
+- **SLAM** — Simultaneous Localisation and Mapping (`slam_toolbox` or Cartographer)
 - **Odometry** (`nav_msgs/Odometry`) — dead-reckoning from wheel encoders
-- **Launch Files** — composing multi-node systems declaratively
-- **RViz Configuration** — custom `.rviz` files for repeatable visualisation
-- **map_saver** — persisting maps to `.pgm` / `.yaml` for re-use
+- **Launch Files** — composing multi-node systems declaratively (Python-based in ROS 2)
+- **RViz2 Configuration** — custom `.rviz` files for repeatable visualisation
+- **nav2_map_server** — persisting maps to `.pgm` / `.yaml` for re-use
 
 ---
 
@@ -171,37 +170,38 @@ Vendor / platform packages (provided by HiWonder):
 - [ ] TODO: Verify and improve the milestones for what makes the most sense.
 
 ### Milestone 1 — Environment Setup
-- [ ] Flash Jetson with Ubuntu 20.04 + ROS Noetic (if not already done)
-- [ ] Clone this repository onto the Jetson
+- [ ] Confirm Ubuntu 22.04 + ROS 2 Humble is running on the Jetson Orin Nano
+- [ ] Clone this repository into `~/ros2_ws/src/`
 - [ ] Verify JetRover bringup launches without errors
-- [ ] Confirm `/scan` topic publishes LiDAR data
-- [ ] Confirm `/odom` topic publishes odometry data
+- [ ] Confirm `/scan` topic publishes LiDAR data (`ros2 topic echo /scan`)
+- [ ] Confirm `/odom` topic publishes odometry data (`ros2 topic echo /odom`)
+- [ ] Confirm YDLiDAR model (G4 or A1) via the robot config tool and update `config/` accordingly
 
 ### Milestone 2 — TF Tree & URDF
 - [ ] Load `jetrover_description` and verify URDF with `check_urdf`
-- [ ] Visualise TF tree using `rosrun tf2_tools view_frames.py`
+- [ ] Visualise TF tree using `ros2 run tf2_tools view_frames`
 - [ ] Confirm `base_link → laser` static transform is correct
 
 ### Milestone 3 — Teleoperation
-- [ ] Drive robot with `teleop_twist_keyboard`
+- [ ] Drive robot with `ros2 run teleop_twist_keyboard teleop_twist_keyboard`
 - [ ] Confirm `/cmd_vel` commands move the physical robot
 - [ ] Tune linear/angular speed limits in config
 
-### Milestone 4 — SLAM Integration (gmapping)
-- [ ] Launch `slam_gmapping` with tuned parameters
-- [ ] Open RViz and add `/map` and `/scan` displays
+### Milestone 4 — SLAM Integration (slam_toolbox)
+- [ ] Launch `slam_toolbox` in online async mode
+- [ ] Open RViz2 and add `/map` and `/scan` displays
 - [ ] Drive robot around room and observe map building in real time
-- [ ] Save map with `rosrun map_server map_saver -f ~/maps/room_map`
+- [ ] Save map with `ros2 run nav2_map_server map_saver_cli -f ~/maps/room_map`
 
 ### Milestone 5 — Parameter Tuning & Evaluation
 - [ ] Compare maps from multiple runs; identify drift or artefacts
-- [ ] Tune key gmapping params (`particles`, `linearUpdate`, `angularUpdate`)
-- [ ] Document best-performing parameter set in `config/gmapping_params.yaml`
+- [ ] Tune key `slam_toolbox` params (`resolution`, `minimum_travel_distance`, `minimum_travel_heading`)
+- [ ] Document best-performing parameter set in `config/slam_toolbox_params.yaml`
 
 ### Milestone 6 — Stretch: Cartographer
-- [ ] Replace gmapping with `cartographer_ros`
+- [ ] Replace `slam_toolbox` with `cartographer_ros`
 - [ ] Write Cartographer `.lua` configuration file
-- [ ] Compare map quality vs gmapping; document findings
+- [ ] Compare map quality vs `slam_toolbox`; document findings
 
 ### Milestone 7 — Stretch: IMU Fusion
 - [ ] Launch `imu_filter_madgwick` to fuse IMU + odometry
@@ -218,16 +218,16 @@ room-mapping-explorer/
 ├── package.xml
 │
 ├── config/
-│   ├── gmapping_params.yaml       # Tuned gmapping parameters
+│   ├── slam_toolbox_params.yaml   # Tuned slam_toolbox parameters
 │   ├── cartographer_config.lua    # Cartographer config (stretch)
 │   └── rviz/
-│       └── mapping.rviz           # Saved RViz layout
+│       └── mapping.rviz           # Saved RViz2 layout
 │
 ├── launch/
-│   ├── mapping.launch             # Main entry point: bringup + SLAM + RViz
-│   ├── gmapping.launch            # SLAM only (gmapping)
-│   ├── cartographer.launch        # SLAM only (cartographer, stretch)
-│   └── teleop.launch              # Keyboard teleoperation
+│   ├── mapping.launch.py          # Main entry point: bringup + SLAM + RViz2
+│   ├── slam_toolbox.launch.py     # SLAM only (slam_toolbox)
+│   ├── cartographer.launch.py     # SLAM only (cartographer, stretch)
+│   └── teleop.launch.py           # Keyboard teleoperation
 │
 ├── maps/
 │   └── .gitkeep                   # Saved maps go here (gitignored)
@@ -242,7 +242,7 @@ room-mapping-explorer/
     ├── architecture.md
     ├── parameter_tuning.md
     └── images/
-        └── (screenshots of maps, RViz, TF tree)
+        └── pipeline.svg
 ```
 
 ---
@@ -254,25 +254,25 @@ room-mapping-explorer/
 ssh jetson@<JETROVER_IP> #TODO
 
 # 2. Clone the repo
-cd ~/catkin_ws/src
+cd ~/ros2_ws/src
 git clone https://github.com/<your-username>/room-mapping-explorer.git #TODO
 
 # 3. Install dependencies
-cd ~/catkin_ws
+cd ~/ros2_ws
 rosdep install --from-paths src --ignore-src -r -y
 
 # 4. Build
-catkin_make
-source devel/setup.bash
+colcon build --symlink-install
+source install/setup.bash
 
 # 5. Launch mapping session
-roslaunch room-mapping-explorer mapping.launch
+ros2 launch room-mapping-explorer mapping.launch.py
 
 # 6. In a new terminal — drive the robot
-roslaunch room-mapping-explorer teleop.launch
+ros2 launch room-mapping-explorer teleop.launch.py
 
 # 7. When done, save the map
-rosrun map_server map_saver -f ~/catkin_ws/src/room-mapping-explorer/maps/room_map
+ros2 run nav2_map_server map_saver_cli -f ~/ros2_ws/src/room-mapping-explorer/maps/room_map
 ```
 
 ---
@@ -286,7 +286,7 @@ rosrun map_server map_saver -f ~/catkin_ws/src/room-mapping-explorer/maps/room_m
 - Single-session only — no map merging across sessions
 
 **Planned extensions (future projects):**
-- **Autonomous Navigation** — use the saved map with `move_base` / `nav2` for
+- **Autonomous Navigation** — use the saved map with `nav2` for
   point-to-point navigation (Project #2 in the series)
 - **Frontier Exploration** — autonomous coverage using `explore_lite`
 - **3-D Mapping** — integrate the RealSense D435 with `rtabmap_ros`
@@ -296,10 +296,11 @@ rosrun map_server map_saver -f ~/catkin_ws/src/room-mapping-explorer/maps/room_m
 
 ## References
 
-- [ROS Noetic Documentation](https://wiki.ros.org/noetic)
-- [gmapping Wiki](https://wiki.ros.org/gmapping)
+- [ROS 2 Humble Documentation](https://docs.ros.org/en/humble/)
+- [slam_toolbox Wiki](https://github.com/SteveMacenski/slam_toolbox)
 - [Google Cartographer ROS](https://google-cartographer-ros.readthedocs.io/)
-- [nav_msgs/OccupancyGrid](https://docs.ros.org/en/noetic/api/nav_msgs/html/msg/OccupancyGrid.html)
-- [TF2 ROS Tutorial](https://wiki.ros.org/tf2/Tutorials)
-- [HiWonder JetRover Product Page](https://www.hiwonder.com/products/jetrover)
+- [nav_msgs/OccupancyGrid](https://docs.ros.org/en/humble/p/nav_msgs/)
+- [TF2 ROS 2 Tutorial](https://docs.ros.org/en/humble/Tutorials/Intermediate/Tf2/Tf2-Main.html)
+- [YDLiDAR ROS 2 Driver](https://github.com/YDLIDAR/ydlidar_ros2_driver)
+- [HiWonder JetRover Orin Nano Docs](https://docs.hiwonder.com/projects/JetRover/en/jetson-orin-nano/)
 - Thrun, S., Burgard, W., Fox, D. — *Probabilistic Robotics* (MIT Press, 2005)
