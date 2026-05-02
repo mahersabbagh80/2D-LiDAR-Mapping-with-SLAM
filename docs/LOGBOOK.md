@@ -29,18 +29,55 @@ It complements the `README.md` (which explains what the project is and how to ru
 - **Work done**
   - Created initial `README.md` documenting scope, requirements, and milestones.
   - Set up a TODO list for verifying JetRover ROS/LiDAR details.
+  - Created `docs/LOGBOOK.md` so the README stays focused on “what/how”, while the logbook captures day-to-day progress.
+  - Initialized git, created the initial commit, and connected/pushed the repository to GitHub.
+  - Noted SSH vs HTTPS remote choice; attempted switching `origin` to SSH and diagnosed `Permission denied (publickey)` as a missing/unused key file in WSL (deferred; HTTPS is acceptable).
+  - Shared how to invite collaborators so the tutor can access the repo.
 
 - **Results**
   - Repository has a clear problem statement and success criteria.
+  - Repo is on GitHub and ready for review/collaboration.
 
 - **Evidence**
   - `README.md`
+  - `docs/LOGBOOK.md`
 
 - **Blockers**
   - None.
 
 - **Next**
   - Verify JetRover ROS distro and LiDAR model from official docs / device outputs.
+
+---
+
+## 2026-05-02 — Architecture diagram + README corrections
+
+- **Goal**
+  - Refine project documentation and capture the end-to-end mapping pipeline at a high level.
+
+- **Work done**
+  - Updated `README.md` with details based on the official JetRover Orin Nano mapping tutorial.
+  - Corrected the robot/software info: JetRover uses **ROS 2 Humble** (not ROS Noetic).
+  - Added a system architecture/pipeline diagram and iterated on it to fix mistakes and wording:
+    - `docs/images/pipeline.svg`
+    - `docs/images/pipeline.drawio` (source)
+  - Verified that GitHub showing an old embedded image can be a browser/CDN cache issue (hard refresh / private window resolves).
+
+- **Results**
+  - Documentation and diagram are aligned with the JetRover tutorial and reflect the ROS 2 Humble stack.
+  - Diagram assets are stored both as an editable source (`.drawio`) and a rendered export (`.svg`).
+
+- **Evidence**
+  - `README.md`
+  - `docs/images/pipeline.svg`
+  - `docs/images/pipeline.drawio`
+
+- **Blockers**
+  - None.
+
+- **Next**
+  - Do more background research, validate and collect the papers, and tutorials used for this project.
+  - Start validating the pipeline on the actual robot: confirm sensor topics/frames, SLAM package choice, and reproducible “bringup → mapping → save map” steps.
 
 ---
 
