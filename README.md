@@ -12,7 +12,7 @@
   - [Project Overview](#project-overview)
   - [Problem Statement](#problem-statement)
   - [Goals \& Success Criteria](#goals--success-criteria)
-  - [System Architecture](#system-architecture)
+  - [Data Pipeline](#data-pipeline)
   - [Hardware Requirements](#hardware-requirements)
   - [Software Requirements](#software-requirements)
   - [ROS Packages \& Dependencies](#ros-packages--dependencies)
@@ -82,9 +82,9 @@ Constraints:
 
 ---
 
-## System Architecture
+## Data Pipeline
 
-![System Architecture Pipeline](docs/images/pipeline.svg)
+![Data Pipeline](docs/images/pipeline.svg)
 
 > ✦ Stretch goal — IMU fusion is optional and not required for the MVP.
 
