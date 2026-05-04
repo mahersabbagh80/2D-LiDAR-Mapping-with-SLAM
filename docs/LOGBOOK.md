@@ -81,6 +81,43 @@ It complements the `README.md` (which explains what the project is and how to ru
 
 ---
 
+## 2026-05-04 — Planning phase: architecture doc and milestone enrichment
+
+- **Goal**
+  - Move from background research into the planning phase; produce a system schematic before writing any code.
+
+- **Work done**
+  - Created `docs/architecture.md` containing:
+    - ASCII pipeline diagram showing all nodes, topics, and data flow directions
+    - Node/topic interface table (`/scan`, `/odom`, `/tf`, `/map`, `/cmd_vel`, `/imu/data`) with message types, publishers, subscribers, and notes
+    - TF tree breakdown with publisher attribution and failure mode documentation
+    - QoS mismatch risk note with verification command
+    - Open questions to resolve before Milestone 5
+  - Enriched `README.md` milestones: added `Depends on:` and `Done when:` blocks to all 8 milestones so task checklists and completion criteria live in one place
+  - Removed the vague "TODO: Verify and improve the milestones" placeholder
+  - Confirmed robot chassis is **Mecanum** (not Ackermann); noted odometry is computed from 4 independent wheel velocities and is more susceptible to wheel slip — covariance matrix must not be all zeros
+  - Identified 5 open questions requiring hardware verification before Milestone 5 (QoS profile, covariance matrix, URDF laser offset, slam_toolbox mode default, `/scan` frame_id match)
+  - Added Write/Edit/Bash tools to the `robotics-ai-mentor` agent definition (`~/.claude/agents/robotics-ai-mentor.md`) so Tony can edit files directly in future sessions
+
+- **Results**
+  - Project now has a genuine planning schematic, not just a vague strategy doc
+  - Each milestone is self-contained: task checklist + done criteria + dependencies
+  - Interface contracts are documented and verifiable with `ros2 topic info` / `ros2 topic hz`
+
+- **Evidence**
+  - `docs/architecture.md`
+  - `README.md`
+
+- **Blockers**
+  - None — all open questions are deferred to hardware bringup (Milestone 1)
+
+- **Next**
+  - Start a new session with Tony (robotics-ai-mentor) — he now has file write access
+  - Begin Milestone 1: environment setup on the Jetson Orin Nano
+  - Resolve open questions from `docs/architecture.md` against the live system
+
+---
+
 ## Template — copy/paste for new entries
 
 ## YYYY-MM-DD — <short title>
