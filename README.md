@@ -12,13 +12,12 @@
   - [Project Overview](#project-overview)
   - [Problem Statement](#problem-statement)
   - [Goals \& Success Criteria](#goals--success-criteria)
-  - [Data Pipeline](#data-pipeline)
+  - [Architechture Diagram](#architechture-diagram)
   - [Hardware Requirements](#hardware-requirements)
   - [Software Requirements](#software-requirements)
   - [ROS Packages \& Dependencies](#ros-packages--dependencies)
   - [Key Concepts Covered](#key-concepts-covered)
   - [Project Milestones](#project-milestones)
-    - [TODOs](#todos)
     - [Milestone 1 — Environment Setup](#milestone-1--environment-setup)
     - [Milestone 2 — TF Tree \& URDF](#milestone-2--tf-tree--urdf)
     - [Milestone 3 — Calibration](#milestone-3--calibration)
@@ -82,7 +81,7 @@ Constraints:
 
 ---
 
-## Data Pipeline
+## Architechture Diagram
 
 ![Data Pipeline](docs/images/pipeline.svg)
 
@@ -167,9 +166,6 @@ Vendor / platform packages (provided by HiWonder):
 
 ## Project Milestones
 
-### TODOs
-- [ ] TODO: Verify and improve the milestones for what makes the most sense.
-
 ### Milestone 1 — Environment Setup
 - [ ] Confirm Ubuntu 22.04 + ROS 2 Humble is running on the Jetson Orin Nano
 - [ ] Clone this repository into `~/ros2_ws/src/`
@@ -180,20 +176,49 @@ Vendor / platform packages (provided by HiWonder):
 - [ ] Confirm `/odom` topic publishes odometry data (`ros2 topic echo /odom`)
 - [ ] Confirm YDLiDAR model (G4 or A1) via the robot config tool and update `config/` accordingly
 
+**Depends on:** nothing
+
+**Done when:**
+- `ros2 topic echo /scan` shows live data at ~10 Hz with no gaps
+- `ros2 topic echo /odom` shows live odometry with a populated covariance matrix (not all zeros)
+- `jetrover_bringup` launches without errors or warnings
+- YDLiDAR model confirmed (G4 or A1) and recorded in `config/`
+
 ### Milestone 2 — TF Tree & URDF
 - [ ] Load `jetrover_description` and verify URDF with `check_urdf`
 - [ ] Visualise TF tree using `ros2 run tf2_tools view_frames`
 - [ ] Confirm `base_link → laser` static transform is correct
+
+**Depends on:** Milestone 1
+
+**Done when:**
+- `ros2 run tf2_tools view_frames` produces a PDF with the full chain: `odom → base_link → laser_frame`
+- No "could not find transform" warnings in any node logs
+- `base_link → laser_frame` offset matches the physical mounting position (measure and verify)
 
 ### Milestone 3 — Calibration
 - [ ] Run IMU calibration per HiWonder tutorial section 2.5
 - [ ] Run linear velocity and angular velocity calibration
 - [ ] Verify calibration reduces odometry drift before proceeding to SLAM
 
+**Depends on:** Milestone 2
+
+**Done when:**
+- IMU calibration completed per HiWonder tutorial section 2.5
+- Linear and angular velocity calibrated; robot travels ~1 m straight and returns to within ~5 cm
+- Odometry drift over a short loop (~3 m) is acceptable before SLAM correction
+
 ### Milestone 4 — Teleoperation
 - [ ] Drive robot with `ros2 launch peripherals teleop_key_control.launch.py`
 - [ ] Confirm `/cmd_vel` commands move the physical robot
 - [ ] Tune linear/angular speed limits in config (reduce speed for mapping sessions)
+
+**Depends on:** Milestone 1 (can run in parallel with Milestones 2 and 3)
+
+**Done when:**
+- Robot moves in correct direction for all 4 Mecanum drive directions (strafe included)
+- `/cmd_vel` commands visible in `ros2 topic echo /cmd_vel` while driving
+- Speed limits tuned to a safe mapping speed (slow enough to avoid scan blur)
 
 ### Milestone 5 — SLAM Integration (slam_toolbox)
 - [ ] Stop auto-start service (`sudo systemctl stop start_app_node.service`)
@@ -204,19 +229,46 @@ Vendor / platform packages (provided by HiWonder):
       `ros2 run nav2_map_server map_saver_cli -f "room_map" --ros-args -p map_subscribe_transient_local:=true`
 - [ ] Verify map is saved to `~/ros2_ws/src/slam/maps/` (HiWonder default path)
 
+**Depends on:** Milestones 2, 3, 4
+
+**Done when:**
+- `/map` topic publishes at ≥ 1 Hz visible in RViz2 with no lag
+- Driving a closed loop (~3 m square) produces a recognisably square map with walls aligned
+- Map saved successfully: `.pgm` and `.yaml` files loadable by `map_server`
+- `map_subscribe_transient_local:=true` flag confirmed to prevent `map_saver_cli` from hanging
+
 ### Milestone 6 — Parameter Tuning & Evaluation
 - [ ] Compare maps from multiple runs; identify drift or artefacts
 - [ ] Tune key `slam_toolbox` params (`resolution`, `minimum_travel_distance`, `minimum_travel_heading`)
 - [ ] Document best-performing parameter set in `config/slam_toolbox_params.yaml`
+
+**Depends on:** Milestone 5
+
+**Done when:**
+- At least 3 mapping runs completed and compared
+- Best-performing parameter set documented in `config/slam_toolbox_params.yaml`
+- ≥ 90% of drivable floor area mapped in a single session (Success Criterion #3)
 
 ### Milestone 7 — Stretch: Cartographer
 - [ ] Replace `slam_toolbox` with `cartographer_ros`
 - [ ] Write Cartographer `.lua` configuration file
 - [ ] Compare map quality vs `slam_toolbox`; document findings
 
+**Depends on:** Milestone 5
+
+**Done when:**
+- Cartographer produces a comparable map to slam_toolbox
+- Qualitative comparison documented in `docs/parameter_tuning.md`
+
 ### Milestone 8 — Stretch: IMU Fusion
 - [ ] Launch `imu_filter_madgwick` to fuse IMU + odometry
 - [ ] Verify improved localisation on slippery (hard) floor surfaces
+
+**Depends on:** Milestone 5
+
+**Done when:**
+- `imu_filter_madgwick` running and `/imu/data` publishing
+- Measurable reduction in odometry drift over a closed loop on hard floor
 
 ---
 
