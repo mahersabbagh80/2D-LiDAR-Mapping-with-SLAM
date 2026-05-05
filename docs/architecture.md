@@ -6,9 +6,10 @@ The Room-Mapping Explorer pipeline follows a standard ROS 2 SLAM pattern:
 
 ```
 [YDLiDAR G4]           →  /scan    →  [slam_toolbox]  →  /map  →  [RViz2]
-[jetrover_bringup]      →  /odom    →  [slam_toolbox]                [map_saver_cli]
-[jetrover_bringup]      →  /tf      →  [slam_toolbox]
-[robot_state_publisher] →  /tf      →  [slam_toolbox]
+                                                                 [map_saver_cli]
+[jetrover_bringup]      →  /odom    →  (nav2 / debugging)
+[jetrover_bringup]      →  /tf      →  [slam_toolbox]              (odom→base_link)
+[robot_state_publisher] →  /tf      →  [slam_toolbox]              (base_link→laser)
 [teleop_twist_keyboard] →  /cmd_vel →  [jetrover_bringup]
 ```
 
