@@ -118,7 +118,7 @@ It complements the `README.md` (which explains what the project is and how to ru
 
 ---
 
-## 2026-05-07 — Milestone 1: Hardware Bringup
+## 2026-05-06 — Milestone 1: Hardware Bringup
 
 - **Goal**
   - Complete Milestone 1: confirm all hardware is functioning and sensor data is flowing on the Jetson.
