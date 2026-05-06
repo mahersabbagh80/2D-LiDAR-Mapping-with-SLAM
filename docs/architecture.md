@@ -1,68 +1,84 @@
-# Architecture & Planning
+# Architecture
 
-## System Architecture
+## High Level Architecture
 
-The Room-Mapping Explorer pipeline follows a standard ROS 2 SLAM pattern:
+![Pipeline](images/pipeline.png)
 
-```
-[YDLiDAR G4]           →  /scan    →  [slam_toolbox]  →  /map  →  [RViz2]
-                                                                 [map_saver_cli]
-[jetrover_bringup]      →  /odom    →  (nav2 / debugging)
-[jetrover_bringup]      →  /tf      →  [slam_toolbox]              (odom→base_link)
-[robot_state_publisher] →  /tf      →  [slam_toolbox]              (base_link→laser)
-[teleop_twist_keyboard] →  /cmd_vel →  [jetrover_bringup]
-```
+### Inputs
 
-The high-level pipeline diagram is at [`docs/images/pipeline.svg`](images/pipeline.svg).
-The authoritative runtime node graph (generated from the live system) will be added here after Milestone 5.
+- **LiDAR** — publishes `/scan` (`LaserScan`); distance readings from one full 360-degree sweep.
+- **Wheel odometry** — publishes `/odom` (`Odometry`); how far the robot has moved based on wheel rotation.
+- **Teleop** — publishes `/cmd_vel` (`Twist`); keyboard commands translated into velocity instructions.
+- **IMU ✦** — publishes `/imu` (`Imu`); measures orientation and angular velocity. ✦ stretch goal, optional.
+
+### Perception
+
+- **LiDAR driver** — vendor package (off-the-shelf); reads the physical sensor and produces `/scan`.
+- **TF tree** — coordinate frame chain `map → odom → base_link → laser`; tells every node where each part of the robot is in space.
+- **IMU filter ✦** — `imu_filter_madgwick`; fuses IMU data to improve orientation estimates. ✦ stretch goal, optional.
+
+### SLAM
+
+- **SLAM node** — `slam_toolbox` (or `cartographer_ros` ✦ as stretch); consumes `/scan` and `/odom`, builds a map, and localises the robot inside it simultaneously.
+
+### Planning / Control
+
+- **map_saver** — off-the-shelf, configured to save the map on demand.
+- **RViz2** — displays the live map and robot position during exploration.
+- **Motor driver** — vendor package (off-the-shelf); receives `/cmd_vel` and drives the Mecanum wheels.
+
+### Outputs
+
+- **Saved map** — written to `room.pgm` + `room.yaml`; success criterion: coverage >= 90%.
+- **Live map** — published on `/map` (`OccupancyGrid`); streamed to RViz2 while the robot moves.
+- **Robot motion** — Mecanum drive executed by the motor driver in response to `/cmd_vel`.
+
 
 ---
 
-## Node / Topic Interface Table
+## Low Level Architecture (ROS 2)
 
-This table defines the interface contracts between nodes. Each row is a verifiable claim — validate with `ros2 topic info <topic>` and `ros2 topic hz <topic>` once the system is running.
+```
+[YDLiDAR G4]       ->  /scan    ->  [slam_toolbox]  ->  /map  ->  [RViz2]
+                                                               [map_saver_cli]
+[jetrover_bringup]  ->  /odom    ->  [slam_toolbox]
+[jetrover_bringup]  ->  /tf      ->  [slam_toolbox]   (odom -> base_link)
+[robot_state_pub]   ->  /tf      ->  [slam_toolbox]   (base_link -> laser)
+[teleop_keyboard]   ->  /cmd_vel ->  [jetrover_bringup]
+```
 
-| Topic | Message Type | Publisher | Subscriber(s) | Notes |
-|-------|-------------|-----------|---------------|-------|
-| `/scan` | `sensor_msgs/LaserScan` | `ydlidar_ros2_driver` | `slam_toolbox` | ~10 Hz (to be confirmed — config-dependent); confirm QoS — mismatch causes silent failure |
-| `/odom` | `nav_msgs/Odometry` | `jetrover_bringup` | `slam_toolbox` | Mecanum chassis; wheel encoder dead-reckoning. Computed from 4 independent wheel velocities — more susceptible to wheel slip than differential drive; covariance matrix must not be all zeros |
-| `/tf` | `tf2_msgs/TFMessage` | `jetrover_bringup`, `robot_state_publisher`, `slam_toolbox` | All nodes | Full chain: `map → odom → base_link → laser` |
-| `/map` | `nav_msgs/OccupancyGrid` | `slam_toolbox` | RViz2, `map_saver_cli` | QoS: transient local (required for `map_saver_cli`) |
-| `/cmd_vel` | `geometry_msgs/Twist` | `teleop_twist_keyboard` | `jetrover_bringup` | Velocity commands to motor controller; does NOT feed slam_toolbox |
-| `/imu/data` | `sensor_msgs/Imu` | `jetrover_bringup` | — | Not consumed in MVP; stretch goal for Milestone 8 sensor fusion |
+In ROS 2, software is organized as nodes. A node is just a program that does one job. Nodes talk to each other by publishing and subscribing to topics — a topic is like a named channel that carries a specific type of message.
+
+### Topics
+
+| Topic | Message Type | Who Publishes | Who Reads |
+|-------|-------------|---------------|-----------|
+| `/scan` | `sensor_msgs/LaserScan` | `ydlidar_ros2_driver` | `slam_toolbox` |
+| `/odom` | `nav_msgs/Odometry` | `jetrover_bringup` | `slam_toolbox` |
+| `/tf` | `tf2_msgs/TFMessage` | `jetrover_bringup`, `robot_state_publisher`, `slam_toolbox` | all nodes |
+| `/map` | `nav_msgs/OccupancyGrid` | `slam_toolbox` | RViz2, `map_saver_cli` |
+| `/cmd_vel` | `geometry_msgs/Twist` | `teleop_twist_keyboard` | `jetrover_bringup` |
+
+- `/scan` carries the raw distance readings from the LiDAR, one full rotation at a time.
+- `/odom` carries the robot's estimated position based on wheel movement since it started.
+- `/tf` carries coordinate frame relationships — it tells every node where each physical part of the robot is relative to everything else.
+- `/map` carries the occupancy grid — a 2D grid where each cell is marked free, occupied, or unknown.
+- `/cmd_vel` carries a velocity command: how fast to move forward and how fast to turn.
 
 ### TF Tree
 
+The TF tree is ROS 2's way of tracking the positions of physical parts of the robot relative to each other. Every frame is a named coordinate origin attached to something real.
+
 ```
 map
- └── odom                 (published by slam_toolbox)
-      └── base_link        (published by jetrover_bringup via wheel odometry)
-           └── laser       (published by robot_state_publisher from URDF)
+ └── odom              (published by slam_toolbox)
+      └── base_link    (published by jetrover_bringup — tracks wheel movement)
+           └── laser   (published by robot_state_publisher — from URDF)
 ```
 
-> **Note:** The laser frame name above (`laser`) follows the convention used in the README and is the assumed default. The actual frame name must be verified against the JetRover URDF before Milestone 2.
+- `map` is the fixed reference frame for the whole room. slam_toolbox creates it.
+- `odom` is the robot's starting position. The relationship between `map` and `odom` is updated by slam_toolbox as it corrects for drift.
+- `base_link` is the center of the robot body. The relationship between `odom` and `base_link` comes from wheel odometry — how far the wheels have turned.
+- `laser` is where the LiDAR sensor is physically mounted on the robot. Its position relative to `base_link` is defined in the URDF (the robot's description file) and does not change.
 
-**Who publishes what:**
-- `odom → base_link`: `jetrover_bringup` (wheel encoder odometry)
-- `base_link → laser`: `robot_state_publisher` (static, from URDF)
-- `map → odom`: `slam_toolbox` (updated each scan match)
-
-**Failure mode:** If `base_link → laser` has the wrong rotation (e.g., LiDAR mounted at an angle not reflected in the URDF), scan matching will be systematically wrong and the map will distort. Validate in Milestone 2 before proceeding.
-
-### QoS Risk
-
-slam_toolbox subscribes to `/scan` with specific QoS settings. If the YDLiDAR driver publishes with mismatched QoS (e.g., `RELIABLE` vs `BEST_EFFORT`), the subscription silently fails — no error, no data. Verify with:
-
-```bash
-ros2 topic info /scan --verbose
-```
-
----
-
-## Open Questions (resolve before Milestone 5)
-
-- [ ] What QoS profile does `ydlidar_ros2_driver` use for `/scan`? (RELIABLE or BEST_EFFORT?)
-- [ ] Does `jetrover_bringup` publish `/odom` with a populated covariance matrix?
-- [ ] What is the exact `base_link → laser` offset in the JetRover URDF?
-- [ ] Is `online_async` mode the default in the HiWonder slam_toolbox launch, or does it need to be set explicitly?
-- [ ] What `frame_id` does `ydlidar_ros2_driver` stamp on `/scan` messages? Must match the URDF laser frame name. Verify with: `ros2 topic echo /scan --once | grep frame_id`
+When slam_toolbox receives a laser scan, it uses the TF tree to know exactly where in the room that scan came from, which is how it builds an accurate map.
