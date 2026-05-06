@@ -41,7 +41,7 @@ The robot enters an unknown room with no prior map. Using its LiDAR and wheel od
 |-----------|---------|
 | Robot | HiWonder JetRover (Orin Nano version), Mecanum chassis |
 | Compute | NVIDIA Jetson Orin Nano |
-| LiDAR | YDLiDAR G4 |
+| LiDAR | SLAMTEC RPLidar A1 |
 | Host PC | Ubuntu 22.04 with RViz2 (optional, for visualisation) |
 
 ---
@@ -68,7 +68,7 @@ sudo apt install ros-humble-nav2-map-server
 sudo apt install ros-humble-teleop-twist-keyboard
 sudo apt install ros-humble-tf2-tools
 sudo apt install ros-humble-rviz2
-sudo apt install ros-humble-ydlidar-ros2-driver
+sudo apt install ros-humble-sllidar-ros2
 ```
 
 HiWonder packages (pre-installed on the Jetson):
@@ -81,12 +81,12 @@ HiWonder packages (pre-installed on the Jetson):
 ## Milestones
 
 ### Milestone 1 — Hardware Bringup
-- [ ] Confirm ROS 2 Humble is running on the Jetson
-- [ ] Stop the HiWonder auto-start service: `sudo systemctl stop start_app_node.service`
-- [ ] Launch `jetrover_bringup` without errors
-- [ ] Confirm `/scan` publishes: `ros2 topic echo /scan`
-- [ ] Confirm `/odom` publishes: `ros2 topic echo /odom`
-- [ ] Confirm your LiDAR model (G4 or A1) via the robot config tool
+- [x] Confirm ROS 2 Humble is running on the Jetson
+- [x] Stop the HiWonder auto-start service: `sudo systemctl stop start_app_node.service`
+- [x] Launch `ros2 launch bringup bringup.launch.py` without errors
+- [x] Confirm `/scan` publishes: `ros2 topic echo /scan` 
+- [x] Confirm `/odom` publishes: `ros2 topic echo /odom` 
+- [x] Confirm your LiDAR model (G4 or A1) via the robot config tool
 
 **Done when:** `/scan` is live at ~10 Hz, `/odom` has a non-zero covariance matrix, bringup is clean.
 
@@ -177,14 +177,14 @@ room-mapping-explorer/
 
 ```bash
 # SSH into the Jetson
-ssh jetson@<JETROVER_IP>
+ssh ubuntu@192.168.2.138 # Password: ubuntu
 
 # Stop the auto-start service
 sudo systemctl stop start_app_node.service
 
 # Clone the repo
-cd ~/ros2_ws/src
-git clone https://github.com/<your-username>/room-mapping-explorer.git
+cd <your-preferred-path>
+git clone https://github.com/mahersabbagh80/Room-Mapping-Explorer.git
 
 # Install dependencies
 cd ~/ros2_ws
@@ -203,27 +203,6 @@ ros2 launch peripherals teleop_key_control.launch.py
 # When done, save the map
 ros2 run nav2_map_server map_saver_cli -f "room_map" --ros-args -p map_subscribe_transient_local:=true
 ```
----
-
-## Things to Check Early
-
-**QoS mismatch** — slam_toolbox can silently receive nothing from `/scan` if the QoS profiles don't match. Verify:
-```bash
-ros2 topic info /scan --verbose
-```
-
-**Laser frame name** — the frame ID stamped on `/scan` messages must match the laser frame in the URDF. Check:
-```bash
-ros2 topic echo /scan --once | grep frame_id
-```
-
-**Odometry covariance** — slam_toolbox uses the covariance matrix on `/odom`. If it's all zeros, SLAM will behave unpredictably. Check:
-```bash
-ros2 topic echo /odom --once | grep -A 36 covariance
-```
-
-**Map saver flag** — always use `--ros-args -p map_subscribe_transient_local:=true` or `map_saver_cli` will hang waiting for a message it never receives.
-
 ---
 
 ## Limitations

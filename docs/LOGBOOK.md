@@ -118,6 +118,51 @@ It complements the `README.md` (which explains what the project is and how to ru
 
 ---
 
+## 2026-05-07 — Milestone 1: Hardware Bringup
+
+- **Goal**
+  - Complete Milestone 1: confirm all hardware is functioning and sensor data is flowing on the Jetson.
+
+- **Context**
+  - Robot: HiWonder JetRover (Jetson Orin Nano), Mecanum chassis
+  - LiDAR: confirmed SLAMTEC RPLidar A1 (README corrected from G4)
+  - Host: Ubuntu 22.04 (WSL2 on Windows 11), ROS 2 Humble
+  - Jetson IP: 192.168.2.138, accessed via SSH
+
+- **Work done**
+  - Stopped HiWonder auto-start service: `sudo systemctl stop start_app_node.service`
+  - Discovered bringup package is named `bringup`, not `jetrover_bringup` — found via `ls $(ros2 pkg prefix bringup)/share/bringup/launch/`
+  - Launched bringup: `ros2 launch bringup bringup.launch.py`
+  - Confirmed `/scan` publishing with real LiDAR data: `ros2 topic echo /scan --once`
+  - Confirmed `/odom` publishing
+  - Confirmed IMU calibration complete (bias = [0.004, 0.093, 0.005])
+  - Fixed WSL2 networking: enabled mirrored networking mode via `C:\Users\maher\.wslconfig` — PC now on 192.168.2.102 (same subnet as Jetson)
+  - Updated README: corrected LiDAR model from YDLiDAR G4 to SLAMTEC RPLidar A1, updated driver dependency accordingly
+
+- **Results**
+  - Bringup clean — all 22 nodes started, no errors
+  - `/scan` live at 10 Hz, max range 12 m, frame_id: `lidar_frame`
+  - `/odom` publishing
+  - IMU: first message received, gyro calibration complete
+  - LiDAR health status: OK
+
+- **Evidence**
+  - `ros2 topic echo /scan --once` — ranges ~0.25 m (wall detected), intensities 47.0
+  - `ros2 node list` on Jetson — all nodes visible locally
+
+- **Blockers / Issues**
+  - Cross-machine ROS 2 discovery (PC → Jetson) not working: FastDDS unicast XML approach attempted but breaks local DDS when FASTRTPS_DEFAULT_PROFILES_FILE is set. Deferred to next session — FastDDS Discovery Server approach not yet tried.
+  - All Milestone 1 verification done directly on the Jetson over SSH as a workaround.
+
+- **Next**
+  - Milestone 2: TF tree verification
+    - Check URDF with `check_urdf`
+    - Visualise TF tree: `ros2 run tf2_tools view_frames`
+    - Confirm `odom -> base_link -> lidar_frame` chain resolves
+  - Fix cross-machine discovery using FastDDS Discovery Server approach
+
+---
+
 ## Template — copy/paste for new entries
 
 ## YYYY-MM-DD — <short title>
