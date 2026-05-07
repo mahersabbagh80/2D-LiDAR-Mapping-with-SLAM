@@ -14,7 +14,7 @@
 ### Perception
 
 - **LiDAR driver** — vendor package (off-the-shelf); reads the physical sensor and produces `/scan`.
-- **TF tree** — coordinate frame chain `map → odom → base_link → laser`; tells every node where each part of the robot is in space.
+- **TF tree** — coordinate frame chain `map → odom → base_link → lidar_link → lidar_frame`; tells every node where each part of the robot is in space.
 - **IMU filter ✦** — `imu_filter_madgwick`; fuses IMU data to improve orientation estimates. ✦ stretch goal, optional.
 
 ### SLAM
@@ -39,15 +39,16 @@
 ## Low Level Architecture (ROS 2)
 
 ```
-[YDLiDAR G4]       ->  /scan    ->  [slam_toolbox]  ->  /map  ->  [RViz2]
-                                                               [map_saver_cli]
-[jetrover_bringup]  ->  /odom    ->  [slam_toolbox]
-[jetrover_bringup]  ->  /tf      ->  [slam_toolbox]   (odom -> base_link)
-[robot_state_pub]   ->  /tf      ->  [slam_toolbox]   (base_link -> laser)
-[teleop_keyboard]   ->  /cmd_vel ->  [jetrover_bringup]
+[SLAMTEC RPLidar A1]  ->  /scan    ->  [slam_toolbox]  ->  /map  ->  [RViz2]
+                                                                  [map_saver_cli]
+[bringup]             ->  /odom    ->  [slam_toolbox]
+[bringup]             ->  /tf      ->  [slam_toolbox]   (odom -> base_link)
+[robot_state_pub]     ->  /tf      ->  [slam_toolbox]   (base_link -> lidar_link -> lidar_frame)
+[teleop_keyboard]     ->  /cmd_vel ->  [bringup]
 ```
 
 In ROS 2, software is organized as nodes. A node is just a program that does one job. Nodes talk to each other by publishing and subscribing to topics — a topic is like a named channel that carries a specific type of message.
+In the Diagram above, anything in between square brackets [] is designated as a node. each node has subscribers are publishers. publishers publish Topics and Subscribers listens to these Topics.
 
 ### Topics
 
@@ -71,14 +72,17 @@ The TF tree is ROS 2's way of tracking the positions of physical parts of the ro
 
 ```
 map
- └── odom              (published by slam_toolbox)
-      └── base_link    (published by jetrover_bringup — tracks wheel movement)
-           └── laser   (published by robot_state_publisher — from URDF)
+ └── odom                    (published by slam_toolbox)
+      └── base_footprint     (published by bringup — tracks wheel movement)
+           └── base_link     (static — 2D floor projection of base_link, from URDF)
+                └── lidar_link
+                     └── lidar_frame  (static — LiDAR scan origin, from URDF)
 ```
 
 - `map` is the fixed reference frame for the whole room. slam_toolbox creates it.
 - `odom` is the robot's starting position. The relationship between `map` and `odom` is updated by slam_toolbox as it corrects for drift.
-- `base_link` is the center of the robot body. The relationship between `odom` and `base_link` comes from wheel odometry — how far the wheels have turned.
-- `laser` is where the LiDAR sensor is physically mounted on the robot. Its position relative to `base_link` is defined in the URDF (the robot's description file) and does not change.
+- `base_footprint` is the dynamic frame tracking wheel movement, published at ~30 Hz by bringup.
+- `base_link` is the center of the robot body. It is a static transform directly above `base_footprint` (the 2D floor projection convention).
+- `lidar_link` and `lidar_frame` represent the LiDAR sensor mount and its scan origin. Their positions relative to `base_link` are defined in the URDF and do not change.
 
 When slam_toolbox receives a laser scan, it uses the TF tree to know exactly where in the room that scan came from, which is how it builds an accurate map.

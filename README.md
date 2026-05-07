@@ -23,7 +23,7 @@ The robot enters an unknown room with no prior map. Using its LiDAR and wheel od
 | Goal | Done when |
 |------|-----------|
 | LiDAR and odometry data flowing | `/scan` and `/odom` publishing on the Jetson |
-| TF tree correct | `map -> odom -> base_link -> laser` resolves without errors |
+| TF tree correct | `map -> odom -> base_footprint -> base_link -> lidar_link -> lidar_frame` resolves without errors |
 | SLAM running | `/map` visible in RViz2, updating as the robot moves |
 | Map saved | `.pgm` and `.yaml` files loadable by `map_server` |
 
@@ -93,11 +93,11 @@ HiWonder packages (pre-installed on the Jetson):
 ---
 
 ### Milestone 2 — TF Tree
-- [ ] Load `jetrover_description` and check URDF: `check_urdf`
-- [ ] Visualise the TF tree: `ros2 run tf2_tools view_frames`
-- [ ] Confirm `base_link -> laser` offset matches the physical LiDAR mounting position
+- [x] Load `jetrover_description` and check URDF: `check_urdf`
+- [X] Visualise the TF tree: `ros2 run tf2_tools view_frames`
+- [x] Confirm `base_link -> lidar_link -> lidar_frame` offset matches the physical LiDAR mounting position
 
-**Done when:** Full chain `odom -> base_link -> laser` resolves with no transform errors.
+**Done when:** Full chain `odom -> base_footprint -> base_link -> lidar_link -> lidar_frame` resolves with no transform errors.
 
 ---
 
