@@ -101,10 +101,11 @@ HiWonder packages (pre-installed on the Jetson):
 
 ---
 
-### Milestone 3 — Calibration
-- [ ] Run IMU calibration (HiWonder tutorial section 2.5)
-- [ ] Calibrate linear and angular velocity
-- [ ] Verify the robot travels ~1 m straight and returns to within ~5 cm
+### Milestone 3 — Odometry Validation
+- [x] Confirm `/odom` publisher node: `ros2 topic info /odom --verbose`
+- [x] Calibrate linear velocity (command 1 m, measure actual distance, tune scale)
+- [x] Calibrate angular velocity (command 360°, measure actual rotation, tune scale — run 3× and average)
+- [x] Verify the robot travels ~1 m straight and returns to within ~5 cm
 
 **Done when:** Odometry drift over a short loop is acceptable before SLAM correction kicks in.
 
@@ -143,12 +144,14 @@ HiWonder packages (pre-installed on the Jetson):
 
 ## Stretch Goal
 
-The pipeline diagram shows a dashed block for IMU fusion — here is what that means and why it exists:
+The JetRover bringup already runs `ekf_filter_node` (`robot_localization`) fusing `/imu` + `/odom_raw` into `/odom`. The pipeline is there — but the EKF covariances are almost certainly defaults, not tuned values.
 
-- **What it is:** Add a physical IMU sensor to the JetRover and run `imu_filter_madgwick`, a ROS 2 package that fuses IMU data with wheel odometry to produce a better `/odom` estimate.
-- **Why it helps:** Mecanum wheels slip on smooth floors, which causes wheel odometry to drift. The IMU measures rotational acceleration directly, so it catches drift that the wheels miss — especially during fast turns.
-- **What's needed:** A compatible IMU (e.g., MPU-6050 or BNO055), the `robot_localization` or `imu_filter_madgwick` package, and a new node wired into the pipeline between odometry and SLAM.
-- **When to attempt it:** After Milestone 6 is complete and the baseline map quality is established — that gives you a clear before/after comparison to see whether fusion actually helps.
+**Goal:** Characterize and tune the EKF fusion pipeline to minimize localization drift.
+
+- **What it is:** The EKF has covariance matrices for each sensor input (process noise Q, measurement noise R). Poorly tuned values cause the filter to over-trust the IMU, over-trust wheel odometry, or oscillate between them — all of which degrade map quality silently.
+- **What to do:** Record a known trajectory, compare `/odom` output against ground truth, and iterate on the `robot_localization` YAML config to minimize drift. Measure localization error on a closed loop before and after tuning.
+- **Why it matters:** This connects perception (the map), estimation (EKF output), and real-world error. The result is directly observable in map quality and the before/after comparison is a strong portfolio artifact.
+- **When to attempt it:** After Milestone 6 — once baseline map quality is established, you have a clear reference to measure improvement against.
 
 ---
 
