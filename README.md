@@ -112,9 +112,9 @@ HiWonder packages (pre-installed on the Jetson):
 ---
 
 ### Milestone 4 — Teleoperation
-- [ ] Drive the robot: `ros2 launch peripherals teleop_key_control.launch.py`
-- [ ] Confirm all four Mecanum drive directions work (including strafe)
-- [ ] Tune speed to a safe mapping speed (slow enough to avoid scan blur)
+- [x] Drive the robot: `ros2 launch peripherals teleop_key_control.launch.py`
+- [X] Confirm all four Mecanum drive directions work (including strafe)
+- [X] Tune speed to a safe mapping speed (slow enough to avoid scan blur)
 
 **Done when:** Robot moves correctly in all directions, `/cmd_vel` visible while driving.
 
