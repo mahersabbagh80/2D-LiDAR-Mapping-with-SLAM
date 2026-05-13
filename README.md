@@ -133,7 +133,7 @@ HiWonder packages (pre-installed on the Jetson):
 
 ---
 
-### Milestone 6 — Tuning
+### Stretch Goal 1 — Tuning
 - [ ] Run at least 3 mapping sessions and compare results
 - [ ] Tune key slam_toolbox params (`resolution`, `minimum_travel_distance`, `minimum_travel_heading`)
 - [ ] Save the best parameter set to `config/slam_toolbox_params.yaml`
@@ -142,7 +142,7 @@ HiWonder packages (pre-installed on the Jetson):
 
 ---
 
-## Stretch Goal
+## Stretch Goal 2 - sensor fusion with IMU
 
 The JetRover bringup already runs `ekf_filter_node` (`robot_localization`) fusing `/imu` + `/odom_raw` into `/odom`. The pipeline is there — but the EKF covariances are almost certainly defaults, not tuned values.
 
