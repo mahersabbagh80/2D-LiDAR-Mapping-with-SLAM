@@ -1,6 +1,6 @@
 import os
 from launch import LaunchDescription
-from launch.actions import GroupAction, IncludeLaunchDescription, SetRemap
+from launch.actions import IncludeLaunchDescription
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch_ros.actions import Node
 from ament_index_python.packages import get_package_share_directory
@@ -12,40 +12,45 @@ def generate_launch_description():
     # Paths
     # --------------------------------------------------------------------------
 
-    # This file lives at <repo>/launch/mapping.launch.py.
-    # The repo is NOT a ROS package, so we resolve the config path relative to
-    # this file's location rather than via get_package_share_directory.
     launch_dir = os.path.dirname(os.path.realpath(__file__))
-    slam_params = os.path.join(launch_dir, '..', 'config', 'slam_toolbox_params.yaml')
+    repo_config = os.path.join(launch_dir, '..', 'config')
 
-    # JetRover hardware packages — resolved through the ROS package index.
     controller_dir = get_package_share_directory('controller')
     peripherals_dir = get_package_share_directory('peripherals')
 
     # --------------------------------------------------------------------------
-    # 1. JetRover controller
-    #    Brings up motor drivers, wheel odometry, IMU filter, and EKF.
-    #    The EKF publishes the odom -> base_footprint TF transform that
-    #    slam_toolbox needs to track robot motion between scans.
-    #
-    #    Milestone 5 note: The IMU chain is broken — /imu publishes no data,
-    #    which causes the EKF to stall waiting for IMU input and never emit
-    #    the odom -> base_footprint TF.  The SetRemap below redirects /imu to
-    #    /imu_disabled inside this include, starving the EKF's IMU input so it
-    #    falls back to wheel odometry only.  Reverse this for Milestone 8 when
-    #    IMU fusion is introduced.
+    # 1. JetRover controller (hardware only — EKF disabled)
+    #    enable_odom=false suppresses the vendor ekf_filter_node so we can
+    #    start our own below with an odom-only config (no IMU input).
+    #    The vendor IMU pipeline (/imu) is broken until Milestone 8.
     # --------------------------------------------------------------------------
-    controller = GroupAction([
-        SetRemap(src='/imu', dst='/imu_disabled'),
-        IncludeLaunchDescription(
-            PythonLaunchDescriptionSource(
-                os.path.join(controller_dir, 'launch', 'controller.launch.py')
-            )
+    controller = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            os.path.join(controller_dir, 'launch', 'controller.launch.py')
         ),
-    ])
+        launch_arguments={'enable_odom': 'false'}.items(),
+    )
 
     # --------------------------------------------------------------------------
-    # 2. LiDAR
+    # 2. EKF (wheel odometry only)
+    #    Fuses /odom_raw → publishes /odom and odom→base_footprint TF.
+    #    IMU input omitted until Milestone 8 when the IMU chain is fixed.
+    # --------------------------------------------------------------------------
+    ekf = Node(
+        package='robot_localization',
+        executable='ekf_node',
+        name='ekf_filter_node',
+        output='screen',
+        parameters=[os.path.join(repo_config, 'ekf_odom_only.yaml')],
+        remappings=[
+            ('/tf', 'tf'),
+            ('/tf_static', 'tf_static'),
+            ('odometry/filtered', 'odom'),
+        ],
+    )
+
+    # --------------------------------------------------------------------------
+    # 3. LiDAR
     #    Brings up the RPLidar A1 driver and laser_filters, publishing
     #    filtered scans to /scan — the topic slam_toolbox subscribes to.
     # --------------------------------------------------------------------------
@@ -56,21 +61,21 @@ def generate_launch_description():
     )
 
     # --------------------------------------------------------------------------
-    # 3. SLAM Toolbox (async mode)
+    # 4. SLAM Toolbox (async mode)
     #    Subscribes to /scan and /tf, publishes the occupancy grid map and the
-    #    map -> odom transform.  Async mode means scan processing does not block
-    #    the main loop — safe for embedded hardware like the Jetson.
+    #    map→odom transform.  Async mode is safe for embedded hardware.
     # --------------------------------------------------------------------------
     slam = Node(
         package='slam_toolbox',
         executable='async_slam_toolbox_node',
         name='slam_toolbox',
         output='screen',
-        parameters=[slam_params],
+        parameters=[os.path.join(repo_config, 'slam_toolbox_params.yaml')],
     )
 
     return LaunchDescription([
         controller,
+        ekf,
         lidar,
         slam,
     ])
