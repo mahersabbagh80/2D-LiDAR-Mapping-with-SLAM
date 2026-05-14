@@ -163,6 +163,51 @@ It complements the `README.md` (which explains what the project is and how to ru
 
 ---
 
+## 2026-05-14 — Cross-machine ROS 2 discovery fixed; RViz now runs on WSL2
+
+- **Goal**
+  - Fix cross-machine DDS discovery so RViz can run natively on the WSL2 machine instead of via NoMachine remote desktop.
+
+- **Context**
+  - Robot: HiWonder JetRover (Jetson Orin Nano), IP: 192.168.2.138 (wlan0)
+  - Host: WSL2 Ubuntu 22.04, IP: 192.168.2.102 (eth3, mirrored networking mode)
+  - Both on the same 192.168.2.0/24 subnet
+  - ROS 2 Humble, FastDDS 2.6.11 on both machines
+
+- **Work done**
+  - Diagnosed root cause via systematic elimination:
+    - Confirmed Layer 3 reachability: ping works both directions, no packet loss
+    - Confirmed ROS_DOMAIN_ID matches (both 0) and DDS implementation matches (both FastDDS)
+    - Confirmed `ros2 topic list` was failing due to daemon not running (XML-RPC timeout) — fixed with `ros2 daemon start`
+    - Confirmed DDS cross-machine discovery broken: Jetson publishing `/test_topic` but WSL2 saw nothing
+    - Confirmed UDP blocked at network layer using netcat: Jetson UDP packets not reaching WSL2
+  - **Fix 1 — FastDDS unicast peer config** (bypasses multicast which WiFi routers block):
+    - Created `~/fastdds.xml` on WSL2 with Jetson (192.168.2.138) as explicit unicast peer
+    - Created `~/fastdds.xml` on Jetson with WSL2 (192.168.2.102) as explicit unicast peer
+    - Added `export FASTRTPS_DEFAULT_PROFILES_FILE=~/fastdds.xml` to `~/.zshrc` on both machines
+  - **Fix 2 — Windows Firewall rule** (allows inbound UDP from LAN to WSL2):
+    - Ran in PowerShell (Admin): `New-NetFirewallRule -DisplayName "ROS2 DDS - Allow UDP from LAN" -Direction Inbound -Protocol UDP -RemoteAddress 192.168.2.0/24 -Action Allow`
+  - Added auto-start of `ros2 daemon` to WSL2 `~/.zshrc` so daemon starts silently on terminal open
+  - Verified that both fixes are independently necessary (tested each in isolation)
+
+- **Results**
+  - Full Jetson topic list visible from WSL2: `/map`, `/scan`, `/odom`, `/tf`, `/slam_toolbox/*`, `/imu`, `/cmd_vel`, and all robot hardware topics
+  - RViz can now run on the WSL2 machine and connect to live robot data
+  - Cross-machine discovery survives Jetson reboots (confirmed)
+
+- **Evidence**
+  - `ros2 topic list` on WSL2 returned 38 topics including `/map` and `/slam_toolbox/scan_visualization`
+  - netcat UDP test confirmed packets flowing after firewall rule applied
+
+- **Blockers / Issues**
+  - IPs in `fastdds.xml` are hardcoded — if DHCP reassigns either machine's IP, both files must be updated. Mitigation: configure DHCP reservations in router.
+
+- **Next**
+  - Launch RViz2 on WSL2 and visualize the SLAM map in real time
+  - Continue Milestone 5: SLAM mapping session with full visualization on host machine
+
+---
+
 ## Template — copy/paste for new entries
 
 ## YYYY-MM-DD — <short title>

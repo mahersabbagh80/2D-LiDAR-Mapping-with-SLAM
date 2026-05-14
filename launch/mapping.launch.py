@@ -1,6 +1,6 @@
 import os
 from launch import LaunchDescription
-from launch.actions import IncludeLaunchDescription
+from launch.actions import GroupAction, IncludeLaunchDescription, SetRemap
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch_ros.actions import Node
 from ament_index_python.packages import get_package_share_directory
@@ -27,12 +27,22 @@ def generate_launch_description():
     #    Brings up motor drivers, wheel odometry, IMU filter, and EKF.
     #    The EKF publishes the odom -> base_footprint TF transform that
     #    slam_toolbox needs to track robot motion between scans.
+    #
+    #    Milestone 5 note: The IMU chain is broken — /imu publishes no data,
+    #    which causes the EKF to stall waiting for IMU input and never emit
+    #    the odom -> base_footprint TF.  The SetRemap below redirects /imu to
+    #    /imu_disabled inside this include, starving the EKF's IMU input so it
+    #    falls back to wheel odometry only.  Reverse this for Milestone 8 when
+    #    IMU fusion is introduced.
     # --------------------------------------------------------------------------
-    controller = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(
-            os.path.join(controller_dir, 'launch', 'controller.launch.py')
-        )
-    )
+    controller = GroupAction([
+        SetRemap(src='/imu', dst='/imu_disabled'),
+        IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(
+                os.path.join(controller_dir, 'launch', 'controller.launch.py')
+            )
+        ),
+    ])
 
     # --------------------------------------------------------------------------
     # 2. LiDAR
