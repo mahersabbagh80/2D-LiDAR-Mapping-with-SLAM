@@ -59,21 +59,8 @@ def generate_launch_description():
         parameters=[slam_params],
     )
 
-    # --------------------------------------------------------------------------
-    # 4. RViz2
-    #    Launched without a config file for now — you will configure the display
-    #    panels manually during Milestone 5 and save the config afterward.
-    # --------------------------------------------------------------------------
-    rviz = Node(
-        package='rviz2',
-        executable='rviz2',
-        name='rviz2',
-        output='screen',
-    )
-
     return LaunchDescription([
         controller,
         lidar,
         slam,
-        rviz,
     ])
