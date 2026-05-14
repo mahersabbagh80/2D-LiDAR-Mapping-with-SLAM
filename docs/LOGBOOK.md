@@ -208,6 +208,51 @@ It complements the `README.md` (which explains what the project is and how to ru
 
 ---
 
+## 2026-05-15 — Milestone 5: EKF diagnosis and odom-only fix
+
+- **Goal**
+  - Unblock slam_toolbox: get the `odom → base_footprint` TF publishing so SLAM can process scans and emit the `map` frame.
+
+- **Context**
+  - Robot: HiWonder JetRover (Jetson Orin Nano), IP: 192.168.2.138
+  - Host: WSL2 Ubuntu 22.04, IP: 192.168.2.102
+  - ROS 2 Humble, cross-machine DDS working from last session
+  - All diagnostics run from WSL2 desktop (cross-machine visibility)
+
+- **Work done**
+  - Traced the EKF failure root cause through the full IMU pipeline:
+    - Confirmed `/odom_raw` healthy at ~48 Hz ✓
+    - Confirmed `imu_calib` running and publishing `/imu_corrected` ✓
+    - Confirmed `imu_filter` subscribed to `/imu_corrected` ✓
+    - Confirmed `/imu` has 0 Hz — `imu_filter_madgwick` receives input but publishes nothing
+    - Confirmed EKF not publishing `odometry/filtered` or any TF — `odom` frame does not exist
+  - Read all relevant vendor launch files from the Jetson to understand the full pipeline: `controller.launch.py`, `odom_publisher.launch.py`, `imu_filter.launch.py`, `lidar.launch.py`, `ekf.yaml`
+  - Found HiWonder's own `slam.launch.py` at `~/ros2_ws/src/slam/launch/slam.launch.py` — uses `robot.launch.py` as hardware base and delays SLAM start by 5 seconds
+  - Discovered `controller.launch.py` exposes `enable_odom` launch argument that conditionally starts the vendor EKF (`IfCondition(enable_odom)`)
+  - **Attempted** `SetRemap(src='/imu', dst='/imu_disabled')` inside `GroupAction` — did not work because `controller.launch.py` uses `OpaqueFunction`, and remaps do not propagate into `OpaqueFunction` launch contexts
+  - **Solution applied**: pass `enable_odom=false` to suppress the vendor EKF entirely; start our own `ekf_filter_node` directly in `mapping.launch.py` with a wheel-odometry-only config
+  - Created `config/ekf_odom_only.yaml`: EKF fuses `/odom_raw` only (vx, vy, vyaw), no IMU input
+  - Rewrote `launch/mapping.launch.py`: 4 explicit components — controller (hardware only), our EKF, lidar, slam_toolbox
+
+- **Results**
+  - Config and launch file ready; **not yet tested on Jetson** — session ended before deployment
+  - `/odom_raw` confirmed: `frame_id: odom`, `child_frame_id: base_footprint` — matches `ekf_odom_only.yaml` exactly
+  - Root cause of the `/imu` silence: `imu_filter_madgwick` appears to stall despite `use_mag: false` being set in the vendor config — exact cause not pinpointed (possible QoS mismatch on output side or gravity-alignment stall)
+
+- **Evidence**
+  - `config/ekf_odom_only.yaml` — new file
+  - `launch/mapping.launch.py` — rewritten
+
+- **Blockers / Issues**
+  - IMU chain root cause not fully explained: `use_mag: false` is already set in vendor `imu_filter.launch.py`, ruling out magnetometer stall as the cause. Deferred to Milestone 8.
+
+- **Next**
+  - Pull changes to Jetson and run: `ros2 launch launch/mapping.launch.py`
+  - Verify `odom → base_footprint` TF now publishes: `ros2 run tf2_ros tf2_echo odom base_footprint`
+  - If EKF is publishing: verify `map` frame appears in TF tree, add Map + LaserScan displays in RViz2, drive the robot, save the map
+
+---
+
 ## Template — copy/paste for new entries
 
 ## YYYY-MM-DD — <short title>
