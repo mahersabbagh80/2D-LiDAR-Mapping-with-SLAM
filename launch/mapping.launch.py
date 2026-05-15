@@ -32,21 +32,16 @@ def generate_launch_description():
     )
 
     # --------------------------------------------------------------------------
-    # 2. EKF (wheel odometry only)
-    #    Fuses /odom_raw → publishes /odom and odom→base_footprint TF.
-    #    IMU input omitted until Milestone 8 when the IMU chain is fixed.
+    # 2. Odom relay (wheel odometry only)
+    #    Subscribes to /odom_raw, republishes as /odom, and broadcasts the
+    #    odom→base_footprint TF.  Replaces robot_localization EKF for
+    #    Milestone 5; EKF+IMU fusion is deferred to Milestone 8.
     # --------------------------------------------------------------------------
     ekf = Node(
-        package='robot_localization',
-        executable='ekf_node',
-        name='ekf_filter_node',
+        executable='python3',
+        name='odom_relay',
         output='screen',
-        parameters=[os.path.join(repo_config, 'ekf_odom_only.yaml')],
-        remappings=[
-            ('/tf', 'tf'),
-            ('/tf_static', 'tf_static'),
-            ('odometry/filtered', 'odom'),
-        ],
+        arguments=[os.path.join(launch_dir, 'odom_relay.py')],
     )
 
     # --------------------------------------------------------------------------
