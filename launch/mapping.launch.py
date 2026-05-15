@@ -32,16 +32,19 @@ def generate_launch_description():
     )
 
     # --------------------------------------------------------------------------
-    # 2. Odom relay (wheel odometry only)
-    #    Subscribes to /odom_raw, republishes as /odom, and broadcasts the
-    #    odom→base_footprint TF.  Replaces robot_localization EKF for
-    #    Milestone 5; EKF+IMU fusion is deferred to Milestone 8.
+    # 2. EKF — wheel odometry only (C++ node)
+    #    Subscribes to /odom_raw, publishes /odom and the odom→base_footprint TF.
+    #    Uses the C++ robot_localization ekf_node because Python rclpy nodes
+    #    fail to deliver DDS data under avoid_builtin_multicast on FastDDS 2.6.x.
+    #    IMU fusion deferred to Milestone 8.
     # --------------------------------------------------------------------------
     ekf = Node(
-        executable='python3',
-        name='odom_relay',
+        package='robot_localization',
+        executable='ekf_node',
+        name='ekf_filter_node',
         output='screen',
-        arguments=[os.path.join(launch_dir, 'odom_relay.py')],
+        parameters=[os.path.join(repo_config, 'ekf_odom_only.yaml')],
+        remappings=[('odometry/filtered', 'odom')],
     )
 
     # --------------------------------------------------------------------------

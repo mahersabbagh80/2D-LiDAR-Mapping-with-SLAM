@@ -253,6 +253,52 @@ It complements the `README.md` (which explains what the project is and how to ru
 
 ---
 
+## 2026-05-15 (afternoon) — Milestone 5: mapping stack fully working
+
+- **Goal**
+  - Deploy the EKF + odom-relay config from the morning session, verify `odom → base_footprint` TF, and get slam_toolbox building a map.
+
+- **Context**
+  - Robot: HiWonder JetRover (Jetson Orin Nano), IP: 192.168.2.138
+  - Host: WSL2 Ubuntu 22.04, IP: 192.168.2.102
+  - SSH access to Jetson now available: `ssh jetrover`
+  - Mapping launched via `tmux new-session -d -s mapping 'zsh /tmp/run_mapping.sh'`
+
+- **Work done**
+  - Deployed morning changes to Jetson; repeatedly launched and diagnosed why no `odom` frame appeared.
+  - Discovered that **Python `odom_relay` receives 0 messages from odom_publisher** despite DDS showing them as "matched" — same for C++ EKF (0 measurements in debug log).
+  - Used `strace -e trace=sendto` on `odom_publisher` (pid 30193): confirmed it sends **only DDS metatraffic (ports 7410–7416)** and **zero user-data packets** to any subscriber port — the Python `publish()` call silently does nothing at the network layer.
+  - Root cause identified: **`avoid_builtin_multicast: true` in `~/fastdds.xml` breaks Python rclpy publisher data delivery on FastDDS 2.6.x.** With this flag set, FastDDS picks the LAN interface (`192.168.2.138`) as the data transport locator for all participants; Jetson-to-Jetson data never actually transmits. C++ nodes (robot_state_publisher, sllidar) are unaffected.
+  - **Fix 1** — updated `mapping.launch.py` to use the C++ `robot_localization` `ekf_node` instead of the Python `odom_relay.py` (same job: subscribe to `/odom_raw`, publish `/odom` + `odom→base_footprint` TF; C++ DDS unaffected by the bug).
+  - **Fix 2** — removed `FASTRTPS_DEFAULT_PROFILES_FILE` export from `run_mapping.sh`; launched nodes now use default FastDDS multicast for local discovery, which works correctly. Cross-machine WSL discovery is handled by the `ros2 daemon` (started via `~/.zshrc` which still sources `~/fastdds.xml`).
+  - Updated `~/fastdds.xml` on Jetson to remove `<avoid_builtin_multicast>true</avoid_builtin_multicast>` (kept `initialPeersList` for WSL contact).
+  - Added `scripts/run_mapping.sh` to the repository (previously only existed as `/tmp/run_mapping.sh` on the Jetson).
+
+- **Results**
+  - `odom → base_footprint` TF: **live** ✓
+  - `map → odom → base_footprint → base_link → lidar_frame` full TF chain: **complete** ✓
+  - slam_toolbox: registered sensor, processing scans, `/map` topic publishing ✓
+  - LiDAR mounted 180° — handled correctly by URDF, no configuration change needed.
+
+- **Evidence**
+  - `ros2 run tf2_ros tf2_echo map lidar_frame` → Translation [0.090, 0.000, 0.157], RPY [0, 0, 180°]
+  - `ros2 topic echo /map --once` → `frame_id: map`, `resolution: 0.05`
+  - slam_toolbox log: `Registering sensor: [Custom Described Lidar]`
+  - strace: zero `sendto()` to subscriber ports while `FASTRTPS_DEFAULT_PROFILES_FILE` was set
+
+- **Blockers / Issues**
+  - Cross-machine topic visibility (WSL ↔ Jetson) not re-verified after removing `FASTRTPS_DEFAULT_PROFILES_FILE` from launch nodes. The daemon still has the config so `/map` and `/tf` should cross, but this needs confirmation.
+  - LiDAR 180° mount: scan data will appear rotated in RViz2 — verify it matches the room geometry when driving.
+
+- **Next**
+  - Confirm `/map` and `/tf` are visible from WSL: `ros2 topic list` on WSL should show `/map`
+  - Open RViz2 on WSL, add Map and LaserScan displays, confirm real-time map update
+  - Drive the robot (publish `/cmd_vel`) to build a complete room map
+  - Save the map: `ros2 run nav2_map_server map_saver_cli -f maps/room_map --ros-args -p map_subscribe_transient_local:=true`
+  - Commit map output to `maps/`
+
+---
+
 ## Template — copy/paste for new entries
 
 ## YYYY-MM-DD — <short title>
