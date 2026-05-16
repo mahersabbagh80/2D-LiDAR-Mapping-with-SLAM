@@ -4,6 +4,12 @@
 # rclpy publisher data delivery on FastDDS 2.6.x (avoid_builtin_multicast bug).
 # Cross-machine DDS discovery (WSL ↔ Jetson) is handled by ~/fastdds.xml which
 # is loaded by the ros2 daemon started in ~/.zshrc, not by the launch nodes.
+# Stop vendor auto-start service and any leftover ROS nodes before launching
+sudo systemctl stop start_app_node.service 2>/dev/null || true
+sleep 1
+pkill -f "ros2" 2>/dev/null || true
+sleep 2
+
 source /opt/ros/humble/local_setup.zsh
 source /home/ubuntu/ros2_ws/install/local_setup.zsh
 source /home/ubuntu/third_party_ros2/third_party_ws/install/local_setup.zsh
