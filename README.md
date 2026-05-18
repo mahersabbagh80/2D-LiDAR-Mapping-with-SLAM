@@ -158,7 +158,7 @@ The JetRover bringup already runs `ekf_filter_node` (`robot_localization`) fusin
 ## Directory Structure
 
 ```
-room-mapping-explorer/
+2D-LiDAR-Mapping-with-SLAM/
 ├── README.md
 ├── config/
 │   ├── slam_toolbox_params.yaml
@@ -186,11 +186,11 @@ ssh ubuntu@192.168.2.138 # Password: ubuntu
 sudo systemctl stop start_app_node.service
 
 # Clone the repo
-cd <your-preferred-path>
-git clone https://github.com/mahersabbagh80/Room-Mapping-Explorer.git
+cd ~/mapping_ws/src
+git clone https://github.com/mahersabbagh80/2D-LiDAR-Mapping-with-SLAM.git
 
 # Install dependencies
-cd ~/ros2_ws
+cd ~/mapping_ws
 rosdep install --from-paths src --ignore-src -r -y
 
 # Build
@@ -198,7 +198,7 @@ colcon build --symlink-install
 source install/setup.bash
 
 # Launch a mapping session
-ros2 launch room-mapping-explorer mapping.launch.py
+ros2 launch 2D-LiDAR-Mapping-with-SLAM mapping.launch.py
 
 # In a second terminal — drive the robot
 ros2 launch peripherals teleop_key_control.launch.py
