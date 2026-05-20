@@ -1,0 +1,11 @@
+# ROS 2 colcon build folders
+build/
+install/
+log/
+
+# Python cache and metadata
+__pycache__/
+*.pyc
+*.egg-info/
+.built_by
+COLCON_IGNORE
