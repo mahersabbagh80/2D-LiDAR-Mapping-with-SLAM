@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>two_d_lidar_mapping_with_slam</name>
+  <version>1.0.0</version>
+  <description>Teleoperated 2-D occupancy-grid mapping with a JetRover, ROS 2, LiDAR, and SLAM</description>
+  <maintainer email="mahersabbagh80@gmail.com">Maher Sabbagh</maintainer>
+  <license>Apache-2.0</license>
+
+  <depend>rclpy</depend>
+  <depend>slam_toolbox</depend>
+  <depend>nav2_map_server</depend>
+  <depend>robot_localization</depend>
+  <exec_depend>controller</exec_depend>
+  <exec_depend>peripherals</exec_depend>
+  <exec_depend>sllidar_ros2</exec_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

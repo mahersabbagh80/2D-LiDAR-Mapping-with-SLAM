@@ -1,0 +1,6 @@
+source;share/two_d_lidar_mapping_with_slam/hook/pythonpath.ps1
+source;share/two_d_lidar_mapping_with_slam/hook/pythonpath.dsv
+source;share/two_d_lidar_mapping_with_slam/hook/pythonpath.sh
+source;share/two_d_lidar_mapping_with_slam/hook/ament_prefix_path.ps1
+source;share/two_d_lidar_mapping_with_slam/hook/ament_prefix_path.dsv
+source;share/two_d_lidar_mapping_with_slam/hook/ament_prefix_path.sh

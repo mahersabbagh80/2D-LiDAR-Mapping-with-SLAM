@@ -191,6 +191,7 @@ git clone https://github.com/mahersabbagh80/2D-LiDAR-Mapping-with-SLAM.git
 
 # Install dependencies
 cd ~/mapping_ws
+rosdep update
 rosdep install --from-paths src --ignore-src -r -y
 
 # Build
@@ -198,7 +199,7 @@ colcon build --symlink-install
 source install/setup.bash
 
 # Launch a mapping session
-ros2 launch 2D-LiDAR-Mapping-with-SLAM mapping.launch.py
+ros2 launch two_d_lidar_mapping_with_slam mapping.launch.py
 
 # In a second terminal — drive the robot
 ros2 launch peripherals teleop_key_control.launch.py
