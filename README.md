@@ -1,4 +1,4 @@
-# Room-Mapping Explorer
+# 2D-LiDAR-Mapping-with-SLAM
 
 Teleoperated 2-D occupancy-grid mapping with a JetRover, ROS 2, LiDAR, and SLAM — visualised live in RViz2.
 

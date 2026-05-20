@@ -12,8 +12,8 @@ def generate_launch_description():
     # Paths
     # --------------------------------------------------------------------------
 
-    launch_dir = os.path.dirname(os.path.realpath(__file__))
-    repo_config = os.path.join(launch_dir, '..', 'config')
+    launch_dir = os.path.dirname(os.path.realpath(__file__)) # get the parent directory of the current file
+    repo_config = os.path.join(launch_dir, '..', 'config') # join the parent directory of the current file with the config directory
 
     controller_dir = get_package_share_directory('controller')
     peripherals_dir = get_package_share_directory('peripherals')
