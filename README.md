@@ -121,12 +121,19 @@ HiWonder packages (pre-installed on the Jetson):
 ---
 
 ### Milestone 5 — SLAM
-- [ ] Launch `slam_toolbox` in online async mode
-- [ ] Open RViz2, add `/map` and `/scan` displays
-- [ ] Drive the robot around the room and watch the map build
-- [ ] Save the map:
+- [x] Launch `slam_toolbox` in online async mode
+- [x] RViz2 config created (`config/rviz/mapping.rviz`) — map, scan, TF displays pre-configured
+- [ ] Hardware session: launch RViz2 on WSL and confirm `/map` updates as the robot moves:
   ```bash
-  ros2 run nav2_map_server map_saver_cli -f "room_map" --ros-args -p map_subscribe_transient_local:=true
+  # On WSL PC — run after the Jetson mapping stack is up
+  source /opt/ros/humble/setup.bash
+  export ROS_DOMAIN_ID=0
+  rviz2 -d ~/My_Projects/2D-LiDAR-Mapping-with-SLAM/config/rviz/mapping.rviz
+  ```
+- [ ] Drive the robot around the room and watch the map build
+- [ ] Save the map (run on the Jetson while the mapping stack is still up):
+  ```bash
+  ros2 run nav2_map_server map_saver_cli -f ~/maps/room_map --ros-args -p map_subscribe_transient_local:=true
   ```
 
 **Done when:** Driving a closed loop produces a recognisable map; `.pgm` and `.yaml` files saved successfully.
@@ -165,8 +172,8 @@ The JetRover bringup already runs `ekf_filter_node` (`robot_localization`) fusin
 │   └── rviz/
 │       └── mapping.rviz
 ├── launch/
-│   ├── mapping.launch.py        # bringup + SLAM + RViz2
-│   └── teleop.launch.py
+│   ├── mapping.launch.py        # controller + EKF + LiDAR + SLAM
+│   └── odom_relay.py            # /odom_raw → /odom + TF relay node
 ├── maps/                        # saved maps (gitignored)
 └── docs/
     ├── architecture.md
