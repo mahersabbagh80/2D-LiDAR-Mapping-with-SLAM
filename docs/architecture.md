@@ -1,88 +1,94 @@
 # Architecture
 
-## High Level Architecture
-
 ![Pipeline](images/pipeline.png)
 
-### Inputs
-
-- **LiDAR** — publishes `/scan` (`LaserScan`); distance readings from one full 360-degree sweep.
-- **Wheel odometry** — publishes `/odom` (`Odometry`); how far the robot has moved based on wheel rotation.
-- **Teleop** — publishes `/cmd_vel` (`Twist`); keyboard commands translated into velocity instructions.
-- **IMU ✦** — publishes `/imu` (`Imu`); measures orientation and angular velocity. ✦ stretch goal, optional.
-
-### Perception
-
-- **LiDAR driver** — vendor package (off-the-shelf); reads the physical sensor and produces `/scan`.
-- **TF tree** — coordinate frame chain `map → odom → base_link → lidar_link → lidar_frame`; tells every node where each part of the robot is in space.
-- **IMU filter ✦** — `imu_filter_madgwick`; fuses IMU data to improve orientation estimates. ✦ stretch goal, optional.
-
-### SLAM
-
-- **SLAM node** — `slam_toolbox` (or `cartographer_ros` ✦ as stretch); consumes `/scan` and `/odom`, builds a map, and localises the robot inside it simultaneously.
-
-### Planning / Control
-
-- **map_saver** — off-the-shelf, configured to save the map on demand.
-- **RViz2** — displays the live map and robot position during exploration.
-- **Motor driver** — vendor package (off-the-shelf); receives `/cmd_vel` and drives the Mecanum wheels.
-
-### Outputs
-
-- **Saved map** — written to `room.pgm` + `room.yaml`; success criterion: coverage >= 90%.
-- **Live map** — published on `/map` (`OccupancyGrid`); streamed to RViz2 while the robot moves.
-- **Robot motion** — Mecanum drive executed by the motor driver in response to `/cmd_vel`.
-
+> Note: the pipeline image is pending an update. The diagrams below reflect the accurate data flow.
 
 ---
 
-## Low Level Architecture (ROS 2)
+## Pipeline
+
+### Mapping — sensor data to map
 
 ```
-[SLAMTEC RPLidar A1]  ->  /scan    ->  [slam_toolbox]  ->  /map  ->  [RViz2]
-                                                                  [map_saver_cli]
-[bringup]             ->  /odom    ->  [slam_toolbox]
-[bringup]             ->  /tf      ->  [slam_toolbox]   (odom -> base_link)
-[robot_state_pub]     ->  /tf      ->  [slam_toolbox]   (base_link -> lidar_link -> lidar_frame)
-[teleop_keyboard]     ->  /cmd_vel ->  [bringup]
+controller   ──/odom_raw──►  odom_relay  ──/odom──►  slam_toolbox  ──/map──►  RViz2
+                                  │                       ▲                    map_saver_cli
+                                  └── TF: odom→base_fp ──┘
+peripherals  ──/scan──────────────────────────────►  slam_toolbox
 ```
 
-In ROS 2, software is organized as nodes. A node is just a program that does one job. Nodes talk to each other by publishing and subscribing to topics — a topic is like a named channel that carries a specific type of message.
-In the Diagram above, anything in between square brackets [] is designated as a node. each node has subscribers are publishers. publishers publish Topics and Subscribers listens to these Topics.
+- `controller` (HiWonder) reads wheel encoders and publishes raw odometry on `/odom_raw`.
+- `odom_relay` (this package) forwards `/odom_raw → /odom` and publishes the `odom → base_footprint` transform.
+- `peripherals` (HiWonder, wraps `sllidar_ros2`) reads the RPLidar A1 and publishes `/scan`.
+- `slam_toolbox` consumes `/scan`, `/odom`, and the TF tree to build the occupancy-grid map and publish it on `/map`.
+- RViz2 displays the live map; `map_saver_cli` saves it to disk at the end of a session.
 
-### Topics
+### Teleoperation — keyboard to wheels
 
-| Topic | Message Type | Who Publishes | Who Reads |
-|-------|-------------|---------------|-----------|
-| `/scan` | `sensor_msgs/LaserScan` | `ydlidar_ros2_driver` | `slam_toolbox` |
-| `/odom` | `nav_msgs/Odometry` | `jetrover_bringup` | `slam_toolbox` |
-| `/tf` | `tf2_msgs/TFMessage` | `jetrover_bringup`, `robot_state_publisher`, `slam_toolbox` | all nodes |
+```
+teleop  ──/cmd_vel──►  controller  ──►  Mecanum wheels
+```
+
+- `peripherals` provides the teleop launch, which reads keyboard input and publishes velocity commands on `/cmd_vel`.
+- `controller` receives `/cmd_vel` and drives the four Mecanum wheels accordingly.
+
+---
+
+## Why each package is in the pipeline
+
+| Package | Role | Why this package |
+|---------|------|-----------------|
+| `peripherals` | LiDAR driver | HiWonder vendor package; pre-configured for the RPLidar A1 on this robot |
+| `controller` | Motor driver + raw odometry | HiWonder vendor package; handles the Mecanum hardware and encoder readout |
+| `odom_relay` | Odometry relay — forwards `/odom_raw` → `/odom` + TF | Included in this package; simpler than a full EKF for a wheel-odometry-only setup |
+| `slam_toolbox` | SLAM — builds the map | Industry-standard ROS 2 SLAM library; async mode is safe for embedded hardware; supports map saving and later map reuse |
+
+---
+
+## Topics
+
+| Topic | Message Type | Publisher | Subscriber(s) |
+|-------|-------------|-----------|---------------|
+| `/scan` | `sensor_msgs/LaserScan` | `peripherals` (sllidar_ros2) | `slam_toolbox` |
+| `/odom_raw` | `nav_msgs/Odometry` | `controller` | `odom_relay` |
+| `/odom` | `nav_msgs/Odometry` | `odom_relay` | `slam_toolbox` |
+| `/cmd_vel` | `geometry_msgs/Twist` | `peripherals` teleop | `controller` |
 | `/map` | `nav_msgs/OccupancyGrid` | `slam_toolbox` | RViz2, `map_saver_cli` |
-| `/cmd_vel` | `geometry_msgs/Twist` | `teleop_twist_keyboard` | `jetrover_bringup` |
+| `/tf` | `tf2_msgs/TFMessage` | `odom_relay`, `robot_state_publisher`, `slam_toolbox` | all nodes |
 
-- `/scan` carries the raw distance readings from the LiDAR, one full rotation at a time.
-- `/odom` carries the robot's estimated position based on wheel movement since it started.
-- `/tf` carries coordinate frame relationships — it tells every node where each physical part of the robot is relative to everything else.
-- `/map` carries the occupancy grid — a 2D grid where each cell is marked free, occupied, or unknown.
-- `/cmd_vel` carries a velocity command: how fast to move forward and how fast to turn.
+- `/scan` — raw distance readings from the LiDAR, one array of ranges per full rotation.
+- `/odom_raw` — wheel encoder estimate of robot displacement; noisy and drifts over time.
+- `/odom` — relayed wheel odometry; what `slam_toolbox` uses to track robot motion between scans.
+- `/cmd_vel` — velocity command: linear x/y and angular z for Mecanum drive.
+- `/map` — 2D occupancy grid where each cell is free (0), occupied (100), or unknown (-1).
+- `/tf` — the transform tree; every node reads this to know where things are in space.
 
-### TF Tree
+---
 
-The TF tree is ROS 2's way of tracking the positions of physical parts of the robot relative to each other. Every frame is a named coordinate origin attached to something real.
+## TF Tree
+
+The TF tree tracks the position of every physical part of the robot relative to each other and to the map. Every frame is a named coordinate origin attached to something real.
 
 ```
 map
- └── odom                    (published by slam_toolbox)
-      └── base_footprint     (published by bringup — tracks wheel movement)
-           └── base_link     (static — 2D floor projection of base_link, from URDF)
-                └── lidar_link
-                     └── lidar_frame  (static — LiDAR scan origin, from URDF)
+ └── odom                      (slam_toolbox — corrects drift between map and odometry)
+      └── base_footprint        (odom_relay — tracks wheel movement, ~30 Hz)
+           └── base_link        (robot_state_publisher — rigid offset from footprint, from URDF)
+                └── lidar_link  (robot_state_publisher — LiDAR mount position, from URDF)
 ```
 
-- `map` is the fixed reference frame for the whole room. slam_toolbox creates it.
-- `odom` is the robot's starting position. The relationship between `map` and `odom` is updated by slam_toolbox as it corrects for drift.
-- `base_footprint` is the dynamic frame tracking wheel movement, published at ~30 Hz by bringup.
-- `base_link` is the center of the robot body. It is a static transform directly above `base_footprint` (the 2D floor projection convention).
-- `lidar_link` and `lidar_frame` represent the LiDAR sensor mount and its scan origin. Their positions relative to `base_link` are defined in the URDF and do not change.
+- `map` — fixed reference frame for the whole room. Created by `slam_toolbox`.
+- `odom` — the robot's starting position. The `map → odom` transform is updated continuously by `slam_toolbox` to correct accumulated odometry drift.
+- `base_footprint` — the 2D floor-projected center of the robot, updated at ~30 Hz by `odom_relay` as the robot moves.
+- `base_link` — the 3D center of the robot body; a static transform above `base_footprint` defined in the URDF.
+- `lidar_link` — the LiDAR sensor mount; a static transform relative to `base_link` defined in the URDF.
 
-When slam_toolbox receives a laser scan, it uses the TF tree to know exactly where in the room that scan came from, which is how it builds an accurate map.
+When `slam_toolbox` receives a laser scan, it looks up the TF tree to find where the LiDAR was in the room at that exact timestamp — that is how it places each scan correctly in the map.
+
+---
+
+## odom_relay.py
+
+`odom_relay` is a lightweight node included in this package. It subscribes to `/odom_raw` (published by `controller`), republishes the data on `/odom`, and broadcasts the `odom → base_footprint` transform — the two things `slam_toolbox` needs to track the robot's position.
+
+It is launched by `mapping.launch.py` as the odometry layer for this project. slam_toolbox's scan matching compensates for the noise in raw wheel odometry, so a full EKF is not needed at this stage.

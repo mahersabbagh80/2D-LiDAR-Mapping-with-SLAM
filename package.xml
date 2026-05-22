@@ -17,7 +17,6 @@
 
   <!-- Community packages — must be installed on Jetson -->
   <depend>slam_toolbox</depend>
-  <depend>robot_localization</depend>
 
   <!-- HiWonder packages — pre-installed on Jetson, runtime only -->
   <exec_depend>controller</exec_depend>

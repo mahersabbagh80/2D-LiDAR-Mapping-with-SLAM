@@ -19,10 +19,9 @@ def generate_launch_description():
     peripherals_dir = get_package_share_directory('peripherals')
 
     # --------------------------------------------------------------------------
-    # 1. JetRover controller (hardware only — EKF disabled)
-    #    enable_odom=false suppresses the vendor ekf_filter_node so we can
-    #    start our own below with an odom-only config (no IMU input).
-    #    The vendor IMU pipeline (/imu) is broken until Milestone 8.
+    # 1. JetRover controller (hardware only — vendor EKF disabled)
+    #    enable_odom=false suppresses the vendor ekf_filter_node so it does
+    #    not conflict with our odom_relay node below.
     # --------------------------------------------------------------------------
     controller = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
@@ -32,19 +31,15 @@ def generate_launch_description():
     )
 
     # --------------------------------------------------------------------------
-    # 2. EKF — wheel odometry only (C++ node)
-    #    Subscribes to /odom_raw, publishes /odom and the odom→base_footprint TF.
-    #    Uses the C++ robot_localization ekf_node because Python rclpy nodes
-    #    fail to deliver DDS data under avoid_builtin_multicast on FastDDS 2.6.x.
-    #    IMU fusion deferred to Milestone 8.
+    # 2. Odometry relay
+    #    Forwards /odom_raw → /odom and publishes the odom→base_footprint TF.
+    #    Replaces a full EKF for this wheel-odometry-only milestone.
     # --------------------------------------------------------------------------
-    ekf = Node(
-        package='robot_localization',
-        executable='ekf_node',
-        name='ekf_filter_node',
+    odom_relay = Node(
+        package='two_d_lidar_mapping_with_slam',
+        executable='odom_relay',
+        name='odom_relay',
         output='screen',
-        parameters=[os.path.join(repo_config, 'ekf_odom_only.yaml')],
-        remappings=[('odometry/filtered', 'odom')],
     )
 
     # --------------------------------------------------------------------------
@@ -73,7 +68,7 @@ def generate_launch_description():
 
     return LaunchDescription([
         controller,
-        ekf,
+        odom_relay,
         lidar,
         slam,
     ])
