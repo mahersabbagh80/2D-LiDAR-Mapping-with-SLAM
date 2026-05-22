@@ -152,5 +152,6 @@ ros2 run nav2_map_server map_saver_cli -f "room_map" --ros-args -p map_subscribe
 
 - [ROS 2 Humble Docs](https://docs.ros.org/en/humble/)
 - [slam_toolbox](https://github.com/SteveMacenski/slam_toolbox)
+- [robot_localization](https://github.com/cra-ros-pkg/robot_localization)
 - [HiWonder JetRover Docs](https://docs.hiwonder.com/projects/JetRover/en/jetson-orin-nano/)
 - [Goals & Roadmap](docs/ROADMAP.md)
