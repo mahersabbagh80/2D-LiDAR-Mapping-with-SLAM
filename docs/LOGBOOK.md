@@ -299,6 +299,51 @@ It complements the `README.md` (which explains what the project is and how to ru
 
 ---
 
+## 2026-05-22 — Milestone 5: repo restructure, RViz2 setup, DDS regression debug
+
+- **Goal**
+  - Complete Milestone 5 mapping session: get RViz2 showing a live map, drive the robot, save the map.
+
+- **Context**
+  - Robot: HiWonder JetRover (Jetson Orin Nano), IP: 192.168.2.138
+  - Host: WSL2 Ubuntu 22.04, IP: 192.168.2.102
+  - Repo was restructured into a standard ROS 2 colcon package (`two_d_lidar_mapping_with_slam`) since the last session
+
+- **Work done**
+  - Created `config/rviz/mapping.rviz` — RViz2 config with Map (`/map`, transient-local), LaserScan (`/scan`), and TF displays. Fixed frame: `map`. No need to manually add displays each session.
+  - Updated `setup.py` to install `config/rviz/*.rviz` via colcon.
+  - Fixed `scripts/run_mapping.sh` — was missing `source ~/my_projects/mapping_ws/install/local_setup.zsh`. Without this line the `two_d_lidar_mapping_with_slam` package is not found and the launch silently fails.
+  - Fixed `~/.zshrc` (WSL) — daemon restart logic changed from "start if not running" to "restart if running without FastDDS profile". Prevents stale daemon after PC reboot from breaking cross-machine DDS. The new logic checks `/proc/<pid>/environ` for the env var before deciding whether to restart.
+  - Diagnosed why EKF receives 0 measurements despite `/odom_raw` publishing at 46 Hz:
+    - `ros2 topic info /odom_raw --verbose` → publisher QoS: RELIABLE; EKF subscriber QoS: BEST_EFFORT
+    - Initially suspected QoS incompatibility — but per DDS spec, RELIABLE publisher + BEST_EFFORT subscriber IS compatible. True root cause not yet identified.
+    - EKF debug log (`/tmp/ekf_debug.txt`): "0 measurements in queue. Filter not yet initialized." — confirms EKF sees no data.
+    - Consequence: no `odom → base_footprint` TF → slam_toolbox drops all scans ("Message Filter: lidar_frame does not exist") → no `map` frame → RViz2 shows "Frame [map] does not exist".
+
+- **Results**
+  - Cross-machine DDS: fully working ✓ (all Jetson topics visible from WSL after `.zshrc` fix)
+  - Mapping stack starts cleanly via `run_mapping.sh` ✓
+  - RViz2 opens with pre-configured displays ✓
+  - **Blocker:** EKF not receiving `/odom_raw` → TF chain broken → no map
+
+- **Evidence**
+  - `ros2 topic hz /odom_raw` from WSL: ~46 Hz ✓
+  - `ros2 run tf2_ros tf2_echo odom base_footprint` on both WSL and Jetson: "frame does not exist"
+  - EKF debug: `/tmp/ekf_debug.txt` → "0 measurements in queue"
+  - RViz2 screenshot: Global Status Error — "Frame [map] does not exist"
+
+- **Blockers / Issues**
+  - EKF (`robot_localization`) not receiving `/odom_raw` despite matching topic names and compatible QoS. Next step: check if there is a RMW mismatch between `odom_publisher` and `ekf_filter_node` (Jetson environment has `CYCLONEDDS_URI` set which may affect RMW selection), or check if a namespace/remapping issue is causing the subscription to point to the wrong topic.
+
+- **Next**
+  - SSH to Jetson, check `$RMW_IMPLEMENTATION` inside the running `ekf_node` process
+  - Run `ros2 topic echo /odom_raw` on the Jetson (with daemon restarted) to confirm data is visible locally
+  - If RMW mismatch: set `RMW_IMPLEMENTATION=rmw_fastrtps_cpp` explicitly in `run_mapping.sh`
+  - If topic visible but EKF still empty: try replacing EKF with `odom_relay.py` and test if Python node has same issue (will confirm if problem is EKF-specific or DDS-local)
+  - Once TF chain is fixed: open RViz2, drive robot, save map
+
+---
+
 ## Template — copy/paste for new entries
 
 ## YYYY-MM-DD — <short title>

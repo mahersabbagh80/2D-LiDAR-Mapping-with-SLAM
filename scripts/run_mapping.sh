@@ -13,6 +13,7 @@ sleep 2
 source /opt/ros/humble/local_setup.zsh
 source /home/ubuntu/ros2_ws/install/local_setup.zsh
 source /home/ubuntu/third_party_ros2/third_party_ws/install/local_setup.zsh
+source /home/ubuntu/my_projects/mapping_ws/install/local_setup.zsh
 export ROS_DOMAIN_ID=0
 export LIDAR_TYPE=A1
 export MACHINE_TYPE=JetRover_Mecanum

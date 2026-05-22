@@ -124,9 +124,9 @@ HiWonder packages (pre-installed on the Jetson):
 - [x] Launch `slam_toolbox` in online async mode
 - [x] RViz2 config created (`config/rviz/mapping.rviz`) — map, scan, TF displays pre-configured
 - [ ] Hardware session: launch RViz2 on WSL and confirm `/map` updates as the robot moves:
-  ```bash
+  ```zsh
   # On WSL PC — run after the Jetson mapping stack is up
-  source /opt/ros/humble/setup.bash
+  source /opt/ros/humble/setup.zsh
   export ROS_DOMAIN_ID=0
   rviz2 -d ~/My_Projects/2D-LiDAR-Mapping-with-SLAM/config/rviz/mapping.rviz
   ```
@@ -209,7 +209,7 @@ source install/setup.bash
 ros2 launch two_d_lidar_mapping_with_slam mapping.launch.py
 
 # In a second terminal — drive the robot
-ros2 launch peripherals teleop_key_control.launch.py
+source /opt/ros/humble/setup.zsh && ros2 launch peripherals teleop_key_control.launch.py
 
 # When done, save the map
 ros2 run nav2_map_server map_saver_cli -f "room_map" --ros-args -p map_subscribe_transient_local:=true
