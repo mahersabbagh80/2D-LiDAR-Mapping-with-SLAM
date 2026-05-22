@@ -74,7 +74,7 @@ See [`docs/architecture.md`](docs/architecture.md) for a full description of the
 
 ## Dependencies
 
-```bash
+```zsh
 # Community packages (declared in package.xml)
 sudo apt install ros-humble-slam-toolbox
 sudo apt install ros-humble-robot-localization
@@ -96,7 +96,7 @@ HiWonder packages (pre-installed on the Jetson):
 All development runs on the Jetson. The recommended approach is to edit code locally and push to git, then pull and build on the robot.
 
 **Access the robot:**
-```bash
+```zsh
 ssh ubuntu@192.168.2.138   # password: ubuntu
 ```
 
@@ -108,7 +108,7 @@ For visualization (RViz2), connect to the Jetson desktop via **NoMachine** at `1
 
 ## Getting Started
 
-```bash
+```zsh
 # SSH into the Jetson
 ssh ubuntu@192.168.2.138
 
@@ -126,13 +126,13 @@ rosdep install --from-paths src --ignore-src -r -y
 
 # Build
 colcon build --symlink-install
-source install/setup.bash
+source install/setup.zsh
 
 # Launch a mapping session
 ros2 launch two_d_lidar_mapping_with_slam mapping.launch.py
 
 # In a second terminal — drive the robot
-source /opt/ros/humble/setup.bash && ros2 launch peripherals teleop_key_control.launch.py
+source /opt/ros/humble/setup.zsh && ros2 launch peripherals teleop_key_control.launch.py
 
 # When done, save the map
 ros2 run nav2_map_server map_saver_cli -f "room_map" --ros-args -p map_subscribe_transient_local:=true
