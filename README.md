@@ -35,7 +35,7 @@ The robot enters an unknown room with no prior map. Using its LiDAR and wheel od
 | Ubuntu | 22.04 LTS (on Jetson) |
 | ROS 2 | Humble |
 | slam_toolbox | Humble |
-| nav2_map_server | Humble |
+| robot_localization | Humble |
 | RViz2 | Humble |
 
 > The Orin Nano version ships with ROS 2 Humble natively — no Docker required.
@@ -75,18 +75,19 @@ See [`docs/architecture.md`](docs/architecture.md) for a full description of the
 ## Dependencies
 
 ```bash
+# Community packages (declared in package.xml)
 sudo apt install ros-humble-slam-toolbox
-sudo apt install ros-humble-nav2-map-server
-sudo apt install ros-humble-teleop-twist-keyboard
-sudo apt install ros-humble-tf2-tools
+sudo apt install ros-humble-robot-localization
+
+# Tools used manually (not launched by the package)
+sudo apt install ros-humble-nav2-map-server   # map_saver_cli
 sudo apt install ros-humble-rviz2
-sudo apt install ros-humble-sllidar-ros2
+sudo apt install ros-humble-tf2-tools         # tf2_echo, view_frames
 ```
 
 HiWonder packages (pre-installed on the Jetson):
-- `jetrover_bringup` — motor drivers, LiDAR driver, URDF
-- `jetrover_description` — robot URDF/XACRO
-- `jetrover_teleop` — keyboard teleoperation
+- `controller` — motor drivers, hardware abstraction layer
+- `peripherals` — LiDAR driver and teleop launch files
 
 ---
 
