@@ -7,14 +7,6 @@
   <maintainer email="mahersabbagh80@gmail.com">Maher Sabbagh</maintainer>
   <license>Apache-2.0</license>
 
-  <!-- Core ROS 2 Python client -->
-  <depend>rclpy</depend>
-
-  <!-- Message types and TF used by odom_relay.py -->
-  <depend>nav_msgs</depend>
-  <depend>geometry_msgs</depend>
-  <depend>tf2_ros</depend>
-
   <!-- Community packages — must be installed on Jetson -->
   <depend>slam_toolbox</depend>
 

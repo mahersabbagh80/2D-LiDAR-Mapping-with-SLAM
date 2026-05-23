@@ -25,8 +25,6 @@ setup(
     license='Apache-2.0',
     tests_require=['pytest'],
     entry_points={
-        'console_scripts': [
-            'odom_relay = two_d_lidar_mapping_with_slam.odom_relay:main',
-        ],
+        'console_scripts': [],
     },
 )

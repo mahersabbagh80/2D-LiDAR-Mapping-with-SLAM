@@ -19,31 +19,18 @@ def generate_launch_description():
     peripherals_dir = get_package_share_directory('peripherals')
 
     # --------------------------------------------------------------------------
-    # 1. JetRover controller (hardware only — vendor EKF disabled)
-    #    enable_odom=false suppresses the vendor ekf_filter_node so it does
-    #    not conflict with our odom_relay node below.
+    # 1. JetRover controller
+    #    Runs with default enable_odom=true — the vendor EKF fuses wheel
+    #    odometry and IMU, publishes /odom and the odom→base_footprint TF.
     # --------------------------------------------------------------------------
     controller = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(controller_dir, 'launch', 'controller.launch.py')
-        ),
-        launch_arguments={'enable_odom': 'false'}.items(),
+        )
     )
 
     # --------------------------------------------------------------------------
-    # 2. Odometry relay
-    #    Forwards /odom_raw → /odom and publishes the odom→base_footprint TF.
-    #    Replaces a full EKF for this wheel-odometry-only milestone.
-    # --------------------------------------------------------------------------
-    odom_relay = Node(
-        package='two_d_lidar_mapping_with_slam',
-        executable='odom_relay',
-        name='odom_relay',
-        output='screen',
-    )
-
-    # --------------------------------------------------------------------------
-    # 3. LiDAR
+    # 2. LiDAR
     #    Brings up the RPLidar A1 driver and laser_filters, publishing
     #    filtered scans to /scan — the topic slam_toolbox subscribes to.
     # --------------------------------------------------------------------------
@@ -54,7 +41,7 @@ def generate_launch_description():
     )
 
     # --------------------------------------------------------------------------
-    # 4. SLAM Toolbox (async mode)
+    # 3. SLAM Toolbox (async mode)
     #    Subscribes to /scan and /tf, publishes the occupancy grid map and the
     #    map→odom transform.  Async mode is safe for embedded hardware.
     # --------------------------------------------------------------------------
@@ -68,7 +55,6 @@ def generate_launch_description():
 
     return LaunchDescription([
         controller,
-        odom_relay,
         lidar,
         slam,
     ])

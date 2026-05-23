@@ -58,8 +58,7 @@ See [`docs/architecture.md`](docs/architecture.md) for a full description of the
 │   └── rviz/
 │       └── mapping.rviz
 ├── two_d_lidar_mapping_with_slam/
-│   ├── __init__.py
-│   └── odom_relay.py            # /odom_raw → /odom + TF relay node
+│   └── __init__.py
 ├── launch/
 │   └── mapping.launch.py        # controller + EKF + LiDAR + SLAM
 ├── maps/                        # saved maps (gitignored)
@@ -150,6 +149,5 @@ ros2 run nav2_map_server map_saver_cli -f "room_map" --ros-args -p map_subscribe
 
 - [ROS 2 Humble Docs](https://docs.ros.org/en/humble/)
 - [slam_toolbox](https://github.com/SteveMacenski/slam_toolbox)
-- [robot_localization](https://github.com/cra-ros-pkg/robot_localization)
 - [HiWonder JetRover Docs](https://docs.hiwonder.com/projects/JetRover/en/jetson-orin-nano/)
 - [Goals & Roadmap](docs/ROADMAP.md)
