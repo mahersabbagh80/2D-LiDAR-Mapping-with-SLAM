@@ -2,8 +2,6 @@
 
 ![Pipeline](images/pipeline.png)
 
-> Note: the pipeline image is pending an update. The diagrams below reflect the accurate data flow.
-
 ---
 
 ## Pipeline
