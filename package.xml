@@ -4,11 +4,11 @@
   <name>two_d_lidar_mapping_with_slam</name>
   <version>1.0.0</version>
   <description>Teleoperated 2-D occupancy-grid mapping with a JetRover, ROS 2, LiDAR, and SLAM</description>
-  <maintainer email="mahersabbagh80@gmail.com">Maher Sabbagh</maintainer>
+  <maintainer email="mahersabbagh80@gmail.com">Maher Alshirazi Alsabbagh</maintainer>
   <license>Apache-2.0</license>
 
   <!-- Community packages — must be installed on Jetson -->
-  <depend>slam_toolbox</depend>
+  <exec_depend>slam_toolbox</exec_depend>
 
   <!-- HiWonder packages — pre-installed on Jetson, runtime only -->
   <exec_depend>controller</exec_depend>
