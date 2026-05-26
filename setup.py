@@ -19,7 +19,7 @@ setup(
     ],
     install_requires=['setuptools'],
     zip_safe=True,
-    maintainer='Maher Sabbagh',
+    maintainer='Maher Alshirazi Alsabbagh',
     maintainer_email='mahersabbagh80@gmail.com',
     description='Teleoperated 2-D occupancy-grid mapping with a JetRover, ROS 2, LiDAR, and SLAM',
     license='Apache-2.0',

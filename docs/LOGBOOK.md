@@ -344,6 +344,59 @@ It complements the `README.md` (which explains what the project is and how to ru
 
 ---
 
+## 2026-05-25 — Migrated from ROS 2 Humble to ROS 2 Jazzy
+
+- **Goal**
+  - Update the entire project to target ROS 2 Jazzy (Ubuntu 24.04) after uninstalling ROS 2 Humble.
+
+- **Work done**
+  - `scripts/run_mapping.sh`: updated `source /opt/ros/humble/local_setup.zsh` → `/opt/ros/jazzy/local_setup.zsh`
+  - `README.md`: updated Software table (Ubuntu 24.04, ROS 2 Jazzy), all `ros-humble-*` apt commands → `ros-jazzy-*`, sourcing example, and docs link → jazzy
+  - `docs/ROADMAP.md`: updated milestone checklist text and RViz2 launch command to reference Jazzy
+  - `config/slam_toolbox_params.yaml`: updated comment header `# ROS 2 Humble` → `# ROS 2 Jazzy`
+
+- **Results**
+  - All project files consistently reference ROS 2 Jazzy.
+  - No changes needed to `package.xml`, `setup.py`, `setup.cfg`, or `launch/mapping.launch.py` — they are distro-agnostic.
+
+- **Blockers / Issues**
+  - Verify that `slam_toolbox` and `robot_localization` Jazzy packages are available: `apt-cache show ros-jazzy-slam-toolbox`
+  - Verify HiWonder vendor packages (`controller`, `peripherals`) have been rebuilt or are available for Jazzy on the Jetson.
+
+- **Next**
+  - Rebuild the colcon workspace: `colcon build --symlink-install`
+  - Run `source /opt/ros/jazzy/setup.zsh` and confirm `ros2` CLI works
+  - Re-test the full mapping stack on the Jetson with Jazzy
+
+---
+
+## 2026-05-26 — Reverted host to Ubuntu 22.04 / ROS 2 Humble
+
+- **Goal**
+  - Revert the host machine back to Ubuntu 22.04 and ROS 2 Humble after the short-lived Jazzy migration.
+
+- **Context**
+  - Robot: HiWonder JetRover (Jetson Orin Nano), ROS 2 Humble (unchanged)
+  - Host: reverted from Ubuntu 24.04 / ROS 2 Jazzy → Ubuntu 22.04 / ROS 2 Humble
+  - Both machines now on the same Ubuntu and ROS 2 distro
+
+- **Work done**
+  - Reverted host OS to Ubuntu 22.04 LTS.
+  - Updated `README.md`: Software table host entry updated (24.04 / Jazzy → 22.04 / Humble); host dependency apt commands updated (`ros-jazzy-*` → `ros-humble-*`).
+  - Updated `docs/ROADMAP.md`: RViz2 host launch command updated (`/opt/ros/jazzy` → `/opt/ros/humble`).
+
+- **Results**
+  - All project files consistently reference ROS 2 Humble across both Jetson and host.
+  - No changes needed to `package.xml`, `setup.py`, `launch/mapping.launch.py`, or `config/` — they are distro-agnostic.
+
+- **Blockers / Issues**
+  - None.
+
+- **Next**
+  - Resume debugging the EKF `/odom_raw` subscription issue (carried over from 2026-05-22 session).
+
+---
+
 ## Template — copy/paste for new entries
 
 ## YYYY-MM-DD — <short title>

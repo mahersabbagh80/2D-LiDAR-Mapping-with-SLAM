@@ -30,14 +30,12 @@ The robot enters an unknown room with no prior map. Using its LiDAR and wheel od
 
 ## Software
 
-| Software | Version |
-|----------|---------|
-| Ubuntu | 22.04 LTS (on Jetson) |
-| ROS 2 | Humble |
-| slam_toolbox | Humble |
-| RViz2 | Humble |
+| Machine | Ubuntu | ROS 2 |
+|---------|--------|-------|
+| Jetson Orin Nano | 22.04 LTS | Humble |
+| Host (dev machine) | 22.04 LTS | Humble |
 
-> The Orin Nano version ships with ROS 2 Humble natively — no Docker required.
+The robot stack runs entirely on the Jetson. The host connects over DDS for visualization (RViz2) and teleop only.
 
 ---
 
@@ -72,14 +70,17 @@ See [`docs/architecture.md`](docs/architecture.md) for a full description of the
 
 ## Dependencies
 
+**On the Jetson (Humble):**
 ```zsh
-# Community packages (declared in package.xml)
 sudo apt install ros-humble-slam-toolbox
-
-# Tools used manually (not launched by the package)
 sudo apt install ros-humble-nav2-map-server   # map_saver_cli
-sudo apt install ros-humble-rviz2
 sudo apt install ros-humble-tf2-tools         # tf2_echo, view_frames
+```
+
+**On the host (Humble):**
+```zsh
+sudo apt install ros-humble-rviz2
+sudo apt install ros-humble-tf2-tools          # optional, for host-side TF debugging
 ```
 
 HiWonder packages (pre-installed on the Jetson):
@@ -97,7 +98,7 @@ All development runs on the Jetson. The recommended approach is to edit code loc
 ssh ubuntu@192.168.2.138   # password: ubuntu
 ```
 
-For visualization (RViz2), connect to the Jetson desktop via **NoMachine** at `192.168.2.138`.
+For visualization, run RViz2 natively on your host machine — it connects to the Jetson over DDS.
 
 > Note: `192.168.2.138` is a DHCP-assigned IP — update this if it changes.
 
@@ -147,7 +148,8 @@ ros2 run nav2_map_server map_saver_cli -f "room_map" --ros-args -p map_subscribe
 
 ## References
 
-- [ROS 2 Humble Docs](https://docs.ros.org/en/humble/)
+- [ROS 2 Jazzy Docs](https://docs.ros.org/en/jazzy/)
 - [slam_toolbox](https://github.com/SteveMacenski/slam_toolbox)
 - [HiWonder JetRover Docs](https://docs.hiwonder.com/projects/JetRover/en/jetson-orin-nano/)
+- [HiWonder JetRover GitHub](https://github.com/Hiwonder/JetRover)
 - [Goals & Roadmap](docs/ROADMAP.md)
