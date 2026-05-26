@@ -151,5 +151,6 @@ ros2 run nav2_map_server map_saver_cli -f "room_map" --ros-args -p map_subscribe
 - [ROS 2 Jazzy Docs](https://docs.ros.org/en/jazzy/)
 - [slam_toolbox](https://github.com/SteveMacenski/slam_toolbox)
 - [HiWonder JetRover Docs](https://docs.hiwonder.com/projects/JetRover/en/jetson-orin-nano/)
+- [HiWonder Course for Mapping & Navigation](https://docs.hiwonder.com/projects/JetRover/en/jetson-orin-nano/docs/4.Mapping_Navigation_Course.html#mapping)
 - [HiWonder JetRover GitHub](https://github.com/Hiwonder/JetRover)
 - [Goals & Roadmap](docs/ROADMAP.md)
