@@ -1,9 +1,10 @@
 #!/bin/zsh
 # Launch script for 2D-LiDAR-Mapping-with-SLAM stack on the Jetson.
-# Do NOT set FASTRTPS_DEFAULT_PROFILES_FILE here — it silently breaks Python
-# rclpy publisher data delivery on FastDDS 2.6.x (avoid_builtin_multicast bug).
-# Cross-machine DDS discovery (WSL ↔ Jetson) is handled by ~/fastdds.xml which
-# is loaded by the ros2 daemon started in ~/.zshrc, not by the launch nodes.
+# Set FastDDS unicast config so all launched nodes (ekf, slam_toolbox, etc.)
+# proactively contact the host machine as a unicast peer.
+# The Jetson's ~/fastdds.xml no longer has avoid_builtin_multicast, so it is
+# safe to set for both C++ and Python nodes on FastDDS 2.6.x.
+export FASTRTPS_DEFAULT_PROFILES_FILE=~/fastdds.xml
 # Stop vendor auto-start service and any leftover ROS nodes before launching
 sudo systemctl stop start_app_node.service 2>/dev/null || true
 sleep 1
