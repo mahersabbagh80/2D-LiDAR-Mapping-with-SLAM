@@ -57,8 +57,20 @@
 
 ### Milestone 5 — SLAM
 - [x] Launch `slam_toolbox` in online async mode
-- [x] RViz2 config created (`config/rviz/mapping.rviz`) — map, scan, TF displays pre-configured
-- [ ] Hardware session: connect to the Jetson via NoMachine, then launch RViz2:
+- [x] RViz2 config updated (`config/rviz/mapping.rviz`) — Map, LaserScan, TF, and RobotModel displays pre-configured
+- [x] `jetrover_description` package cloned to host workspace (`src/jetrover_description/`) — URDF/xacro for Mecanum chassis + RPLidar A1
+- [x] `mapping.launch.py` updated: `robot_state_publisher` + `joint_state_publisher` added (publish `/robot_description` as Transient Local); `machine_type` and `lidar_type` launch args added; reverted to vendor EKF (`enable_odom=true` default)
+- [ ] Deploy to Jetson: pull latest changes, `colcon build --symlink-install`, verify no build errors
+- [ ] Confirm launch starts cleanly and `/robot_description` publishes:
+  ```bash
+  ros2 launch two_d_lidar_mapping_with_slam mapping.launch.py
+  ros2 topic echo /robot_description --once
+  ```
+- [ ] Confirm `odom → base_footprint` TF is live (vendor EKF):
+  ```bash
+  ros2 run tf2_ros tf2_echo odom base_footprint
+  ```
+- [ ] Hardware session: launch RViz2 on the host and confirm the robot model renders:
   ```bash
   source /opt/ros/humble/setup.bash
   rviz2 -d ~/mapping_ws/src/2D-LiDAR-Mapping-with-SLAM/config/rviz/mapping.rviz
@@ -69,7 +81,7 @@
   ros2 run nav2_map_server map_saver_cli -f ~/maps/room_map --ros-args -p map_subscribe_transient_local:=true
   ```
 
-**Done when:** Driving a closed loop produces a recognisable map; `.pgm` and `.yaml` files saved successfully.
+**Done when:** Driving a closed loop produces a recognisable map; robot model visible in RViz2; `.pgm` and `.yaml` files saved successfully.
 
 ---
 
@@ -79,16 +91,3 @@
 - [ ] Save the best parameter set to `config/slam_toolbox_params.yaml`
 
 **Done when:** Best parameter set documented; >= 90% of drivable floor area mapped in a single session.
-
----
-
-### Stretch Goal 2 — Sensor Fusion with IMU
-
-The JetRover bringup already runs `ekf_filter_node` (`robot_localization`) fusing `/imu` + `/odom_raw` into `/odom`. The pipeline is there — but the EKF covariances are almost certainly defaults, not tuned values.
-
-**Goal:** Characterize and tune the EKF fusion pipeline to minimize localization drift.
-
-- **What it is:** The EKF has covariance matrices for each sensor input (process noise Q, measurement noise R). Poorly tuned values cause the filter to over-trust the IMU, over-trust wheel odometry, or oscillate between them — all of which degrade map quality silently.
-- **What to do:** Record a known trajectory, compare `/odom` output against ground truth, and iterate on the `robot_localization` YAML config to minimize drift. Measure localization error on a closed loop before and after tuning.
-- **Why it matters:** This connects perception (the map), estimation (EKF output), and real-world error. The result is directly observable in map quality and the before/after comparison is a strong portfolio artifact.
-- **When to attempt it:** After Milestone 5 — once baseline map quality is established, you have a clear reference to measure improvement against.

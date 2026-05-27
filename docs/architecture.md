@@ -9,15 +9,17 @@
 ### Mapping — sensor data to map
 
 ```
-controller   ──/odom + TF: odom→base_fp──►  slam_toolbox  ──/map──►  RViz2
-                                                  ▲                    map_saver_cli
-peripherals  ──/scan──────────────────────────────┘
+jetrover_description  ──/robot_description + TF: base_link→lidar_link──►  RViz2 (3D model)
+controller            ──/odom + TF: odom→base_fp──►  slam_toolbox  ──/map──►  RViz2
+                                                            ▲                   map_saver_cli
+peripherals           ──/scan──────────────────────────────┘
 ```
 
+- `jetrover_description` provides the robot URDF. `robot_state_publisher` reads it and publishes the `/robot_description` topic (so RViz2 can render the 3D model) and the static TF transforms between links (e.g. `base_link → lidar_link`).
 - `controller` (HiWonder) runs the full odometry stack internally: reads wheel encoders, filters the IMU, and fuses both through its built-in EKF. It publishes `/odom` and the `odom → base_footprint` transform.
 - `peripherals` (HiWonder, wraps `sllidar_ros2`) reads the RPLidar A1 and publishes `/scan`.
 - `slam_toolbox` consumes `/scan` and the TF tree to build the occupancy-grid map and publish it on `/map`.
-- RViz2 displays the live map; `map_saver_cli` saves it to disk at the end of a session.
+- RViz2 displays the live map and the 3D robot model; `map_saver_cli` saves the map to disk at the end of a session.
 
 ### Teleoperation — keyboard to wheels
 
@@ -34,6 +36,7 @@ teleop  ──/cmd_vel──►  controller  ──►  Mecanum wheels
 
 | Package | Role | Why this package |
 |---------|------|-----------------|
+| `jetrover_description` | Robot URDF + 3D meshes | Sibling repo; provides the physical description of the JetRover so `robot_state_publisher` can broadcast the TF link tree and RViz2 can render the 3D model |
 | `controller` | Motor driver + wheel/IMU odometry | HiWonder vendor package; ships with a pre-tuned EKF that fuses wheel encoders and the on-board IMU — no custom odometry code needed |
 | `peripherals` | LiDAR driver + teleop | HiWonder vendor package; pre-configured for the RPLidar A1 and provides the keyboard teleop launch |
 | `slam_toolbox` | SLAM — builds the map | Industry-standard ROS 2 SLAM library; async mode is safe for embedded hardware; supports map saving and later map reuse |
@@ -44,12 +47,14 @@ teleop  ──/cmd_vel──►  controller  ──►  Mecanum wheels
 
 | Topic | Message Type | Publisher | Subscriber(s) |
 |-------|-------------|-----------|---------------|
+| `/robot_description` | `std_msgs/String` | `robot_state_publisher` | RViz2 (3D model) |
 | `/scan` | `sensor_msgs/LaserScan` | `peripherals` (sllidar_ros2) | `slam_toolbox` |
 | `/odom` | `nav_msgs/Odometry` | `controller` (vendor EKF) | `slam_toolbox` |
 | `/cmd_vel` | `geometry_msgs/Twist` | `peripherals` teleop | `controller` |
 | `/map` | `nav_msgs/OccupancyGrid` | `slam_toolbox` | RViz2, `map_saver_cli` |
-| `/tf` | `tf2_msgs/TFMessage` | `controller`, `slam_toolbox` | all nodes |
+| `/tf` | `tf2_msgs/TFMessage` | `controller`, `robot_state_publisher`, `slam_toolbox` | all nodes |
 
+- `/robot_description` — the full URDF as a string, published once with Transient Local QoS so late-joining subscribers (like RViz2 on the dev machine) still receive it.
 - `/scan` — raw distance readings from the LiDAR, one array of ranges per full rotation.
 - `/odom` — wheel + IMU fused odometry from the vendor EKF; what `slam_toolbox` uses to track robot motion between scans.
 - `/cmd_vel` — velocity command: linear x/y and angular z for Mecanum drive.

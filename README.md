@@ -58,7 +58,7 @@ See [`docs/architecture.md`](docs/architecture.md) for a full description of the
 ├── two_d_lidar_mapping_with_slam/
 │   └── __init__.py
 ├── launch/
-│   └── mapping.launch.py        # controller + EKF + LiDAR + SLAM
+│   └── mapping.launch.py        # robot description + controller + EKF + LiDAR + SLAM
 ├── maps/                        # saved maps (gitignored)
 └── docs/
     ├── ROADMAP.md               # goals, success criteria, and milestones
@@ -70,11 +70,19 @@ See [`docs/architecture.md`](docs/architecture.md) for a full description of the
 
 ## Dependencies
 
+**Sibling ROS 2 package — must be in the same workspace:**
+
+| Package | Repo | Role |
+|---------|------|------|
+| `jetrover_description` | [jetrover_description](https://github.com/mahersabbagh80/jetrover_description) | URDF + meshes for the JetRover; provides `robot_state_publisher` with the robot model |
+
 **On the Jetson (Humble):**
 ```zsh
 sudo apt install ros-humble-slam-toolbox
-sudo apt install ros-humble-nav2-map-server   # map_saver_cli
-sudo apt install ros-humble-tf2-tools         # tf2_echo, view_frames
+sudo apt install ros-humble-nav2-map-server    # map_saver_cli
+sudo apt install ros-humble-tf2-tools          # tf2_echo, view_frames
+sudo apt install ros-humble-robot-state-publisher
+sudo apt install ros-humble-joint-state-publisher
 ```
 
 **On the host (Humble):**
@@ -113,12 +121,13 @@ ssh ubuntu@192.168.2.138
 # Stop the auto-start service
 sudo systemctl stop start_app_node.service
 
-# Clone the repo (if not already present)
-cd ~/mapping_ws/src
+# Clone both packages into the workspace (if not already present)
+cd ~/jetrover_ws/src
 git clone https://github.com/mahersabbagh80/2D-LiDAR-Mapping-with-SLAM.git
+git clone https://github.com/mahersabbagh80/jetrover_description.git
 
 # Install dependencies
-cd ~/mapping_ws
+cd ~/jetrover_ws
 rosdep update
 rosdep install --from-paths src --ignore-src -r -y
 
@@ -148,7 +157,7 @@ ros2 run nav2_map_server map_saver_cli -f "room_map" --ros-args -p map_subscribe
 
 ## References
 
-- [ROS 2 Jazzy Docs](https://docs.ros.org/en/jazzy/)
+- [ROS 2 Humble Docs](https://docs.ros.org/en/humble/)
 - [slam_toolbox](https://github.com/SteveMacenski/slam_toolbox)
 - [HiWonder JetRover Docs](https://docs.hiwonder.com/projects/JetRover/en/jetson-orin-nano/)
 - [HiWonder Course for Mapping & Navigation](https://docs.hiwonder.com/projects/JetRover/en/jetson-orin-nano/docs/4.Mapping_Navigation_Course.html#mapping)

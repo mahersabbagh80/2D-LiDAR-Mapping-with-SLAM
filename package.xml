@@ -10,6 +10,11 @@
   <!-- Community packages — must be installed on Jetson -->
   <exec_depend>slam_toolbox</exec_depend>
 
+  <!-- Robot URDF — sibling package in this workspace -->
+  <exec_depend>jetrover_description</exec_depend>
+  <exec_depend>robot_state_publisher</exec_depend>
+  <exec_depend>joint_state_publisher</exec_depend>
+
   <!-- HiWonder packages — pre-installed on Jetson, runtime only -->
   <exec_depend>controller</exec_depend>
   <exec_depend>peripherals</exec_depend>
