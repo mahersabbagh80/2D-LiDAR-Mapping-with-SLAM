@@ -454,6 +454,49 @@ It complements the `README.md` (which explains what the project is and how to ru
 
 ---
 
+## 2026-05-29 — Layer 1 rewrite: config files, launch file, and documentation
+
+- **Goal**
+  - Write the three files needed to fix the broken TF chain: `config/lidar_filters.yaml`, `config/ekf.yaml`, and a rewritten `launch/mapping.launch.py` that launches all nodes directly without vendor launch includes.
+
+- **Context**
+  - Continuing from 2026-05-28 decision to rewrite Layer 1
+  - All work done on the host (PC); build and test deferred to next session
+
+- **Work done**
+  - Created `config/lidar_filters.yaml` — angular bounds filter (±1.6 rad) and range filter (0.2–12 m), values taken from vendor's `lidar_filters_config_a1.yaml` unchanged
+  - Created `config/ekf.yaml` — odometry-only EKF fusing `/odom_raw` (x, y, yaw), `publish_tf: true` to broadcast `odom → base_footprint` TF, no IMU input
+  - Rewrote `launch/mapping.launch.py` — directly launches all 8 nodes with no vendor `IncludeLaunchDescription`; replaces `controller.launch.py` with `ros_robot_controller` + `odom_publisher` + our `ekf_filter_node`; replaces `peripherals/lidar.launch.py` with `sllidar_node` + `scan_to_scan_filter_chain`
+  - Updated `package.xml` — added `robot_localization`, `laser_filters`, `sllidar_ros2`, `ros_robot_controller`; removed `peripherals` (no longer a dependency)
+  - Updated `README.md` — updated dependencies section (rosdep handles apt installs), added packages table with type and source links, removed stale vendor package list
+  - Added `README.md` to `jetrover_description` repo — documents URDF variants, how other packages consume the xacro file, standalone viewing, and dependencies
+
+- **Results**
+  - All three Layer 1 files written and committed
+  - `package.xml` is now the single source of truth for dependencies
+  - Both repos committed: `jetrover_description` (README) and `2D-LiDAR-Mapping-with-SLAM` (7 files changed)
+  - **Not yet tested** — build and deployment to Jetson deferred to next session
+
+- **Evidence**
+  - `config/lidar_filters.yaml` — new file
+  - `config/ekf.yaml` — new file
+  - `launch/mapping.launch.py` — rewritten (63% change)
+  - `package.xml` — updated
+  - `README.md` — updated
+
+- **Blockers / Issues**
+  - None at this stage — all files written, ready to build.
+
+- **Next**
+  - SSH to Jetson, pull both repos
+  - Run `rosdep install --from-paths src --ignore-src -r -y` to install `robot_localization` and `laser_filters`
+  - Build: `colcon build --symlink-install`
+  - Launch: `ros2 launch two_d_lidar_mapping_with_slam mapping.launch.py`
+  - Verify `odom → base_footprint` TF: `ros2 run tf2_ros tf2_echo odom base_footprint`
+  - Verify map appears in RViz2
+
+---
+
 ## Template — copy/paste for new entries
 
 ## YYYY-MM-DD — <short title>
