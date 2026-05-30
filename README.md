@@ -77,23 +77,14 @@ See [`docs/architecture.md`](docs/architecture.md) for a full description of the
 | `jetrover_description` | [jetrover_description](https://github.com/mahersabbagh80/jetrover_description) | URDF + meshes for the JetRover; provides `robot_state_publisher` with the robot model |
 
 **On the Jetson (Humble):**
-```zsh
-sudo apt install ros-humble-slam-toolbox
-sudo apt install ros-humble-nav2-map-server    # map_saver_cli
-sudo apt install ros-humble-tf2-tools          # tf2_echo, view_frames
-sudo apt install ros-humble-robot-state-publisher
-sudo apt install ros-humble-joint-state-publisher
-```
+
+All dependencies are declared in `package.xml` and installed automatically by `rosdep` (see Getting Started). The packages installed are: `slam_toolbox`, `robot_localization`, `laser_filters`, `sllidar_ros2`, `robot_state_publisher`, `joint_state_publisher`. HiWonder packages (`ros_robot_controller`, `controller`) are pre-installed on the Jetson and not managed by rosdep.
 
 **On the host (Humble):**
 ```zsh
-sudo apt install ros-humble-rviz2
+sudo apt install ros-humble-rviz2              # for viewing the map
 sudo apt install ros-humble-tf2-tools          # optional, for host-side TF debugging
 ```
-
-HiWonder packages (pre-installed on the Jetson):
-- `controller` — motor drivers, hardware abstraction layer
-- `peripherals` — LiDAR driver and teleop launch files
 
 ---
 
@@ -158,8 +149,17 @@ ros2 run nav2_map_server map_saver_cli -f "room_map" --ros-args -p map_subscribe
 ## References
 
 - [ROS 2 Humble Docs](https://docs.ros.org/en/humble/)
-- [slam_toolbox](https://github.com/SteveMacenski/slam_toolbox)
 - [HiWonder JetRover Docs](https://docs.hiwonder.com/projects/JetRover/en/jetson-orin-nano/)
 - [HiWonder Course for Mapping & Navigation](https://docs.hiwonder.com/projects/JetRover/en/jetson-orin-nano/docs/4.Mapping_Navigation_Course.html#mapping)
-- [HiWonder JetRover GitHub](https://github.com/Hiwonder/JetRover)
 - [Goals & Roadmap](docs/ROADMAP.md)
+
+**Packages used in this project:**
+
+| Package | Type | Role | Docs / Source |
+|---------|------|------|---------------|
+| `slam_toolbox` | Community | SLAM — builds the map, publishes `map → odom` TF | [GitHub](https://github.com/SteveMacenski/slam_toolbox) |
+| `robot_localization` (ekf_filter_node) | Community | Fuses wheel odometry, publishes `odom → base_footprint` TF | [GitHub](https://github.com/cra-ros-pkg/robot_localization) · [Docs](https://docs.ros.org/en/humble/p/robot_localization/) |
+| `laser_filters` (scan_to_scan_filter_chain) | Official ROS | Filters raw LiDAR scan before SLAM | [GitHub](https://github.com/ros-perception/laser_filters) |
+| `sllidar_ros2` (sllidar_node) | Hardware vendor (SLAMTEC, open source) | RPLidar A1 hardware driver | [GitHub](https://github.com/Slamtec/sllidar_ros2) |
+| `robot_state_publisher` | Official ROS | Publishes static TF from URDF (`base_link → lidar_frame`) | [GitHub](https://github.com/ros/robot_state_publisher) |
+| `joint_state_publisher` | Official ROS | Publishes default joint states so robot_state_publisher can complete the TF tree | [GitHub](https://github.com/ros/joint_state_publisher) |

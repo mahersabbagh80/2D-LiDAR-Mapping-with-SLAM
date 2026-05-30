@@ -397,6 +397,63 @@ It complements the `README.md` (which explains what the project is and how to ru
 
 ---
 
+## 2026-05-28 — DDS fixed on native Ubuntu; TF chain broken; Layer 1 rewrite planned
+
+- **Goal**
+  - Get a map appearing in RViz2 on the host PC with the mapping stack running on the Jetson.
+
+- **Context**
+  - Host machine changed: now native Ubuntu 22.04 (no longer WSL2), IP: 192.168.2.102
+  - Jetson: Ubuntu 22.04, ROS 2 Humble, IP: 192.168.2.138
+  - Starting fresh: vendor auto-start disabled, new clean workspace `~/jetson_ws` created on Jetson
+
+- **Work done**
+  - Disabled vendor auto-start service permanently: `sudo systemctl stop start_app_node.service && sudo systemctl disable start_app_node.service`
+  - Created `~/jetson_ws/src/` on Jetson; cloned `2D-LiDAR-Mapping-with-SLAM` and `jetrover_description` repos; built with `colcon build --symlink-install`
+  - Fixed cross-machine DDS (router blocks multicast between WiFi clients):
+    - Created `~/fastdds.xml` on both machines with **100 explicit unicast port locators** (ports 7410–7608, covering participant IDs 0–99) pointing at the other machine
+    - Set `export FASTRTPS_DEFAULT_PROFILES_FILE=~/fastdds.xml` permanently in Jetson `~/.bashrc` and host `~/.zshrc`
+    - Documented root causes and solution in `docs/cross_machine_dds.md`
+  - Fixed zsh/bash incompatibility: `source install/setup.bash` hangs in zsh because colcon uses `BASH_SOURCE`. Fix: always use bash terminals when sourcing Jetson workspaces.
+  - Launched `ros2 launch two_d_lidar_mapping_with_slam mapping.launch.py` — LiDAR health OK, SLAM toolbox started, but map never appeared in RViz2.
+  - Diagnosed "Frame [map] does not exist" and "No map received" in RViz2:
+    - `ros2 run tf2_tools view_frames` on PC → `base_footprint` is root, **`odom` frame absent**
+    - `ros2 topic hz /odom_raw` → healthy at 48 Hz ✓
+    - `ros2 topic hz /imu` → **0 Hz — no publisher**
+    - `ros2 topic hz /imu/data_raw` → **not published** — `imu_calib` hardware driver silent
+    - Root cause: vendor EKF requires both `/odom_raw` and `/imu`; with `/imu` missing it never initializes and never publishes `odom → base_footprint` TF → slam_toolbox has no odometry → no `map` frame
+  - Investigated vendor source code (local copy at `~/Downloads/JetRover vendor data/.../ROS2/src`):
+    - `controller/launch/controller.launch.py`: `namespace/` in `ekf.yaml` is a template placeholder replaced at launch time via `nav2_common.launch.ReplaceString` — not a bug, by design
+    - `peripherals/launch/lidar.launch.py`: launches `sllidar_node` + `scan_to_scan_filter_chain`
+    - `peripherals/launch/include/sllidar_a1.launch.py`: sllidar_node params — `/dev/lidar`, 115200 baud, `Sensitivity` scan mode
+    - `peripherals/config/lidar_filters_config_a1.yaml`: two filters — angular bounds (±1.6 rad) + range filter (0.2–12 m)
+    - `controller/launch/odom_publisher.launch.py`: launches `ros_robot_controller` (Layer 2) + `odom_publisher` (Layer 2)
+    - `controller/config/ekf.yaml`: confirmed identical to Jetson version — not modified by user
+  - **Decision**: rewrite Layer 1 (our own launch file + configs) using vendor code as reference only, keeping only the hardware drivers (`ros_robot_controller`, `odom_publisher`) as black-box vendor dependencies. IMU deferred to later as stretch goal.
+
+- **Results**
+  - DDS cross-machine communication: **fully working** ✓ (all Jetson topics visible on PC)
+  - Clean workspace builds and launches correctly ✓
+  - `/odom_raw` healthy ✓, LiDAR healthy ✓
+  - **Blocker**: `odom → base_footprint` TF not published → no map in RViz2
+
+- **Evidence**
+  - `docs/cross_machine_dds.md` — full DDS solution documentation
+  - `~/fastdds.xml` deployed on both machines
+  - TF tree PDF: `base_footprint` is root, no `odom` parent
+
+- **Blockers / Issues**
+  - IMU hardware driver (`imu_calib`) not publishing `/imu/data_raw` — root cause unknown (hardware or driver issue). Deferred to stretch goal.
+  - Vendor EKF requires IMU to initialize — cannot be used without IMU.
+
+- **Next**
+  - Create `config/lidar_filters.yaml` in our package (from vendor A1 config)
+  - Create `config/ekf.yaml` in our package (odometry only, no IMU, correct frame names)
+  - Rewrite `launch/mapping.launch.py` to launch all nodes directly without vendor launch includes
+  - Build, deploy to Jetson, verify `odom → base_footprint` TF, verify map appears in RViz2
+
+---
+
 ## Template — copy/paste for new entries
 
 ## YYYY-MM-DD — <short title>

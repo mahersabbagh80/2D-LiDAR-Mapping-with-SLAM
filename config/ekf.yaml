@@ -1,0 +1,27 @@
+ekf_filter_node:
+  ros__parameters:
+
+    # --- Timing ---
+    frequency: 30.0       # how often the EKF runs (Hz) — 30 times per second
+    sensor_timeout: 0.1   # if a sensor goes silent for 0.1s, stop waiting for it
+
+    # --- Behavior ---
+    two_d_mode: true    # ignore Z, roll, pitch — robot is flat on the ground
+    publish_tf: true    # broadcast the odom→base_footprint transform (this fixes the broken TF chain)
+
+    # --- Frame names (must match slam_toolbox_params.yaml exactly) ---
+    map_frame: map
+    odom_frame: odom
+    base_link_frame: base_footprint
+    world_frame: odom   # "odom" means local odometry mode (not global localization)
+
+    # --- Sensor inputs ---
+    odom0: odom_raw        # subscribe to this topic for wheel odometry
+    # 15-element mask: which values from the odom message to fuse
+    # order: x,    y,     z,     roll,  pitch, yaw,   vx,    vy,    vz,    vroll, vpitch, vyaw,  ax,    ay,    az
+    odom0_config: [true,  true,  false,
+                   false, false, true,
+                   false, false, false,
+                   false, false, false,
+                   false, false, false]
+    odom0_differential: false  # use absolute pose, not velocity differences
