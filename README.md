@@ -163,3 +163,5 @@ ros2 run nav2_map_server map_saver_cli -f "room_map" --ros-args -p map_subscribe
 | `sllidar_ros2` (sllidar_node) | Hardware vendor (SLAMTEC, open source) | RPLidar A1 hardware driver | [GitHub](https://github.com/Slamtec/sllidar_ros2) |
 | `robot_state_publisher` | Official ROS | Publishes static TF from URDF (`base_link → lidar_frame`) | [GitHub](https://github.com/ros/robot_state_publisher) · [Docs](https://docs.ros.org/en/humble/p/robot_state_publisher/) |
 | `joint_state_publisher` | Official ROS | Publishes default joint states so robot_state_publisher can complete the TF tree | [GitHub](https://github.com/ros/joint_state_publisher) · [Docs](https://docs.ros.org/en/humble/p/joint_state_publisher/) |
+| `ros_robot_controller` | Vendor (HiWonder, **closed source**) | Serial protocol driver to motor board — Layer 2 hardware interface | Pre-installed on Jetson |
+| `controller` (odom_publisher) | Vendor (HiWonder, **closed source**) | Reads wheel encoders, publishes `/odom_raw` — Layer 2 hardware interface | Pre-installed on Jetson |

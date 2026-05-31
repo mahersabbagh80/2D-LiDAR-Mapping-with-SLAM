@@ -75,11 +75,14 @@ def generate_launch_description():
     # odom_publisher reads wheel encoder counts from ros_robot_controller and
     # converts them to odometry. Publishes /odom_raw.
     # calibrate_params.yaml contains the wheel dimensions for this specific robot.
+    # additional_env passes MACHINE_TYPE so odom_publisher can select the correct
+    # wheel geometry at startup (it reads this directly from the environment).
     odom_publisher = Node(
         package='controller',
         executable='odom_publisher',
         name='odom_publisher',
         output='screen',
+        additional_env={'MACHINE_TYPE': LaunchConfiguration('machine_type')},
         parameters=[
             os.path.join(controller_pkg, 'config', 'calibrate_params.yaml'),
             {
