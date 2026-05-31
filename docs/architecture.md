@@ -69,16 +69,21 @@ The TF tree tracks the position of every physical part of the robot relative to 
 
 ```
 map
- └── odom                      (slam_toolbox — corrects drift between map and odometry)
-      └── base_footprint        (controller vendor EKF — wheel + IMU fusion, ~30 Hz)
-           └── base_link        (robot_state_publisher — rigid offset from footprint, from URDF)
-                └── lidar_link  (robot_state_publisher — LiDAR mount position, from URDF)
+ └── odom                          (slam_toolbox — corrects drift between map and odometry)
+      └── base_footprint            (ekf_filter_node — wheel odometry fusion, ~30 Hz)
+           └── base_link            (robot_state_publisher — rigid offset from footprint, from URDF)
+                ├── lidar_frame     (robot_state_publisher — LiDAR mount position, from URDF)
+                ├── front_left_wheel   (robot_state_publisher — joint state from joint_state_publisher)
+                ├── front_right_wheel  (robot_state_publisher — joint state from joint_state_publisher)
+                ├── rear_left_wheel    (robot_state_publisher — joint state from joint_state_publisher)
+                └── rear_right_wheel   (robot_state_publisher — joint state from joint_state_publisher)
 ```
 
-- `map` — fixed reference frame for the whole room. Created by `slam_toolbox`.
+- `map` — fixed reference frame for the whole room. Published by `slam_toolbox`.
 - `odom` — the robot's starting position. The `map → odom` transform is updated continuously by `slam_toolbox` to correct accumulated odometry drift.
-- `base_footprint` — the 2D floor-projected center of the robot, updated at ~30 Hz by the vendor EKF.
+- `base_footprint` — the 2D floor-projected center of the robot, updated at ~30 Hz by `ekf_filter_node` (`robot_localization` package) fusing `/odom_raw` from the wheel encoders.
 - `base_link` — the 3D center of the robot body; a static transform above `base_footprint` defined in the URDF.
-- `lidar_link` — the LiDAR sensor mount; a static transform relative to `base_link` defined in the URDF.
+- `lidar_frame` — the LiDAR sensor mount; a static transform relative to `base_link` defined in the URDF. This is the frame that SLAM uses to place each scan in the map.
+- `*_wheel` frames — the four Mecanum wheel positions; static transforms from `base_link` defined in the URDF. `robot_state_publisher` needs joint angles from `/joint_states` (provided by `joint_state_publisher`) to publish these — without them the transforms are unpublished and warnings appear in the logs.
 
-When `slam_toolbox` receives a laser scan, it looks up the TF tree to find where the LiDAR was in the room at that exact timestamp — that is how it places each scan correctly in the map.
+When `slam_toolbox` receives a laser scan, it looks up the TF tree to find where `lidar_frame` was in the room at that exact timestamp — that is how it places each scan correctly in the map.

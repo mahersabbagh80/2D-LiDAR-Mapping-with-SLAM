@@ -159,7 +159,7 @@ ros2 run nav2_map_server map_saver_cli -f "room_map" --ros-args -p map_subscribe
 |---------|------|------|---------------|
 | `slam_toolbox` | Community | SLAM — builds the map, publishes `map → odom` TF | [GitHub](https://github.com/SteveMacenski/slam_toolbox) |
 | `robot_localization` (ekf_filter_node) | Community | Fuses wheel odometry, publishes `odom → base_footprint` TF | [GitHub](https://github.com/cra-ros-pkg/robot_localization) · [Docs](https://docs.ros.org/en/humble/p/robot_localization/) |
-| `laser_filters` (scan_to_scan_filter_chain) | Official ROS | Filters raw LiDAR scan before SLAM | [GitHub](https://github.com/ros-perception/laser_filters) |
+| `laser_filters` (scan_to_scan_filter_chain) | Official ROS | Filters raw LiDAR scan before SLAM | [GitHub](https://github.com/ros-perception/laser_filters) · [Docs](https://docs.ros.org/en/humble/p/laser_filters/) |
 | `sllidar_ros2` (sllidar_node) | Hardware vendor (SLAMTEC, open source) | RPLidar A1 hardware driver | [GitHub](https://github.com/Slamtec/sllidar_ros2) |
-| `robot_state_publisher` | Official ROS | Publishes static TF from URDF (`base_link → lidar_frame`) | [GitHub](https://github.com/ros/robot_state_publisher) |
-| `joint_state_publisher` | Official ROS | Publishes default joint states so robot_state_publisher can complete the TF tree | [GitHub](https://github.com/ros/joint_state_publisher) |
+| `robot_state_publisher` | Official ROS | Publishes static TF from URDF (`base_link → lidar_frame`) | [GitHub](https://github.com/ros/robot_state_publisher) · [Docs](https://docs.ros.org/en/humble/p/robot_state_publisher/) |
+| `joint_state_publisher` | Official ROS | Publishes default joint states so robot_state_publisher can complete the TF tree | [GitHub](https://github.com/ros/joint_state_publisher) · [Docs](https://docs.ros.org/en/humble/p/joint_state_publisher/) |
