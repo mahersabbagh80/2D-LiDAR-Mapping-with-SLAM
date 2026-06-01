@@ -59,35 +59,14 @@
 - [x] Launch `slam_toolbox` in online async mode
 - [x] RViz2 config updated (`config/rviz/mapping.rviz`) — Map, LaserScan, TF, and RobotModel displays pre-configured
 - [x] `jetrover_description` package cloned to host workspace (`src/jetrover_description/`) — URDF/xacro for Mecanum chassis + RPLidar A1
-- [x] `mapping.launch.py` updated: `robot_state_publisher` + `joint_state_publisher` added (publish `/robot_description` as Transient Local); `machine_type` and `lidar_type` launch args added; reverted to vendor EKF (`enable_odom=true` default)
-- [ ] Deploy to Jetson: pull latest changes, `colcon build --symlink-install`, verify no build errors
-- [ ] Confirm launch starts cleanly and `/robot_description` publishes:
+- [x] `mapping.launch.py` finalised: removed redundant `robot_state_publisher` and `joint_state_publisher` (vendor controller stack owns those); added `init_pose` to move arm to resting position on startup; added `joystick_control` for gamepad driving
+- [x] Deployed to Jetson: pulled latest, `colcon build --symlink-install`, no build errors
+- [x] Confirmed `odom → base_footprint` TF live and robot model renders in RViz2
+- [x] Drove the robot around the apartment and built a complete map
+- [x] Map saved to `maps/apartment.pgm` / `maps/apartment.yaml` and `maps/apartment.posegraph` (pose graph for resuming)
   ```bash
-  ros2 launch two_d_lidar_mapping_with_slam mapping.launch.py
-  ros2 topic echo /robot_description --once
-  ```
-- [ ] Confirm `odom → base_footprint` TF is live (vendor EKF):
-  ```bash
-  ros2 run tf2_ros tf2_echo odom base_footprint
-  ```
-- [ ] Hardware session: launch RViz2 on the host and confirm the robot model renders:
-  ```bash
-  source /opt/ros/humble/setup.bash
-  rviz2 -d ~/mapping_ws/src/2D-LiDAR-Mapping-with-SLAM/config/rviz/mapping.rviz
-  ```
-- [ ] Drive the robot around the room and watch the map build
-- [ ] Save the map (run on the Jetson while the mapping stack is still up):
-  ```bash
-  ros2 run nav2_map_server map_saver_cli -f ~/maps/room_map --ros-args -p map_subscribe_transient_local:=true
+  ros2 run nav2_map_server map_saver_cli -f ~/jetson_ws/src/2D-LiDAR-Mapping-with-SLAM/maps/apartment
+  ros2 service call /slam_toolbox/serialize_map slam_toolbox/srv/SerializePoseGraph "{filename: '/home/ubuntu/jetson_ws/src/2D-LiDAR-Mapping-with-SLAM/maps/apartment'}"
   ```
 
-**Done when:** Driving a closed loop produces a recognisable map; robot model visible in RViz2; `.pgm` and `.yaml` files saved successfully.
-
----
-
-### Stretch Goal 1 — Tuning
-- [ ] Run at least 3 mapping sessions and compare results
-- [ ] Tune key slam_toolbox params (`resolution`, `minimum_travel_distance`, `minimum_travel_heading`)
-- [ ] Save the best parameter set to `config/slam_toolbox_params.yaml`
-
-**Done when:** Best parameter set documented; >= 90% of drivable floor area mapped in a single session.
+**Done when:** Driving a closed loop produces a recognisable map; robot model visible in RViz2; `.pgm`, `.yaml`, and `.posegraph` files saved and committed.

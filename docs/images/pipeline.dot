@@ -31,15 +31,15 @@ digraph pipeline {
     ]
 
     // ── Column ordering ──────────────────────────────────
-    {rank=same; lidar; chassis; teleop}
+    {rank=same; lidar; chassis; joystick}
     {rank=same; peripherals; controller}
     {rank=same; slam}
     {rank=same; map_saver; rviz}
     {rank=same; saved_map; live_map; motion}
 
     // Invisible vertical-ordering edges within each column
+    joystick -> lidar    [style=invis weight=10]
     lidar    -> chassis  [style=invis weight=10]
-    chassis  -> teleop   [style=invis weight=10]
     peripherals -> controller [style=invis weight=10]
     map_saver -> rviz    [style=invis weight=10]
     saved_map -> live_map -> motion [style=invis weight=10]
@@ -55,15 +55,15 @@ digraph pipeline {
         fillcolor="#E1F5EE" color="#1D9E75" fontcolor="#085041"
         height=0.65
     ]
-    teleop [
-        label=<<b>Teleop</b><br align="center"/><font point-size="9" color="#0F6E56">/cmd_vel · Twist</font>>
+    joystick [
+        label=<<b>Joystick Controller</b><br align="center"/><font point-size="9" color="#0F6E56">gamepad input</font>>
         fillcolor="#E1F5EE" color="#1D9E75" fontcolor="#085041"
         height=0.65
     ]
 
     // ── VENDOR PACKAGE nodes (purple) ────────────────────
     peripherals [
-        label=<<b>peripherals</b><br align="center"/><font point-size="9" color="#3C3489">LiDAR driver · vendor pkg</font>>
+        label=<<b>peripherals</b><br align="center"/><font point-size="9" color="#3C3489">LiDAR driver · joystick_control · vendor pkg</font>>
         fillcolor="#EEEDFE" color="#534AB7" fontcolor="#26215C"
         height=0.65
     ]
@@ -113,12 +113,13 @@ digraph pipeline {
     // ── Edges ────────────────────────────────────────────
     lidar       -> peripherals  []
     chassis     -> controller   []
-    teleop      -> controller   []
+    joystick    -> peripherals  []
     peripherals -> slam         [label="  /scan"]
     controller  -> slam         [label="  /odom + TF"]
     slam        -> map_saver    [label="  /map"]
     slam        -> rviz         [label="  /map"]
     map_saver   -> saved_map    []
     rviz        -> live_map     []
-    controller  -> motion       [label="  /cmd_vel"]
+    peripherals -> controller   [label="  controller/cmd_vel"]
+    controller  -> motion       []
 }

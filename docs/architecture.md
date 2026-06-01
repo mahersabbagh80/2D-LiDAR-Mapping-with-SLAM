@@ -9,26 +9,26 @@
 ### Mapping — sensor data to map
 
 ```
-jetrover_description  ──/robot_description + TF: base_link→lidar_link──►  RViz2 (3D model)
-controller            ──/odom + TF: odom→base_fp──►  slam_toolbox  ──/map──►  RViz2
-                                                            ▲                   map_saver_cli
-peripherals           ──/scan──────────────────────────────┘
+controller  ──/robot_description + TF: base_link→lidar_link──►  RViz2 (3D model)
+controller  ──/odom + TF: odom→base_fp──►  slam_toolbox  ──/map──►  RViz2
+                                                  ▲                   map_saver_cli
+peripherals ──/scan───────────────────────────────┘
 ```
 
-- `jetrover_description` provides the robot URDF. `robot_state_publisher` reads it and publishes the `/robot_description` topic (so RViz2 can render the 3D model) and the static TF transforms between links (e.g. `base_link → lidar_link`).
-- `controller` (HiWonder) runs the full odometry stack internally: reads wheel encoders, filters the IMU, and fuses both through its built-in EKF. It publishes `/odom` and the `odom → base_footprint` transform.
+- `controller` (HiWonder) owns the full robot description stack: `robot_state_publisher` reads the URDF and publishes `/robot_description` (so RViz2 can render the 3D model) and static TF transforms between links (e.g. `base_link → lidar_link`). The servo controller reads hardware joint angles and publishes `/joint_states`, which `robot_state_publisher` uses to broadcast the arm transforms.
+- `controller` also runs the full odometry stack: reads wheel encoders, filters the IMU, and fuses both through its built-in EKF. It publishes `/odom` and the `odom → base_footprint` transform.
 - `peripherals` (HiWonder, wraps `sllidar_ros2`) reads the RPLidar A1 and publishes `/scan`.
 - `slam_toolbox` consumes `/scan` and the TF tree to build the occupancy-grid map and publish it on `/map`.
 - RViz2 displays the live map and the 3D robot model; `map_saver_cli` saves the map to disk at the end of a session.
 
-### Teleoperation — keyboard to wheels
+### Teleoperation — gamepad to wheels
 
 ```
-teleop  ──/cmd_vel──►  controller  ──►  Mecanum wheels
+peripherals (joystick_control)  ──controller/cmd_vel──►  controller  ──►  Mecanum wheels
 ```
 
-- `peripherals` provides the teleop launch, which reads keyboard input and publishes velocity commands on `/cmd_vel`.
-- `controller` receives `/cmd_vel` and drives the four Mecanum wheels accordingly.
+- `peripherals` provides the `joystick_control` node, which reads gamepad input from `ros_robot_controller` and publishes velocity commands on `controller/cmd_vel`.
+- `controller` receives `controller/cmd_vel` and drives the four Mecanum wheels accordingly.
 
 ---
 
@@ -36,10 +36,9 @@ teleop  ──/cmd_vel──►  controller  ──►  Mecanum wheels
 
 | Package | Role | Why this package |
 |---------|------|-----------------|
-| `jetrover_description` | Robot URDF + 3D meshes | Sibling repo; provides the physical description of the JetRover so `robot_state_publisher` can broadcast the TF link tree and RViz2 can render the 3D model |
-| `controller` | Motor driver + wheel/IMU odometry | HiWonder vendor package; ships with a pre-tuned EKF that fuses wheel encoders and the on-board IMU — no custom odometry code needed |
-| `peripherals` | LiDAR driver + teleop | HiWonder vendor package; pre-configured for the RPLidar A1 and provides the keyboard teleop launch |
-| `slam_toolbox` | SLAM — builds the map | Industry-standard ROS 2 SLAM library; async mode is safe for embedded hardware; supports map saving and later map reuse |
+| `controller` | Motor driver + odometry + robot description | HiWonder vendor package; ships with a pre-tuned EKF that fuses wheel encoders and the on-board IMU, runs `robot_state_publisher` with the URDF, and manages the servo controller for the arm |
+| `peripherals` | LiDAR driver + joystick control | HiWonder vendor package; pre-configured for the RPLidar A1 and provides the joystick_control node for gamepad-driven teleoperation |
+| `slam_toolbox` | SLAM — builds the map | Industry-standard ROS 2 SLAM library; async mode is safe for embedded hardware; supports map saving and later map reuse via pose graph serialization |
 
 ---
 
@@ -47,17 +46,19 @@ teleop  ──/cmd_vel──►  controller  ──►  Mecanum wheels
 
 | Topic | Message Type | Publisher | Subscriber(s) |
 |-------|-------------|-----------|---------------|
-| `/robot_description` | `std_msgs/String` | `robot_state_publisher` | RViz2 (3D model) |
+| `/robot_description` | `std_msgs/String` | `controller` (robot_state_publisher) | RViz2 (3D model) |
+| `/joint_states` | `sensor_msgs/JointState` | `controller` (servo_controller) | `robot_state_publisher` |
 | `/scan` | `sensor_msgs/LaserScan` | `peripherals` (sllidar_ros2) | `slam_toolbox` |
 | `/odom` | `nav_msgs/Odometry` | `controller` (vendor EKF) | `slam_toolbox` |
-| `/cmd_vel` | `geometry_msgs/Twist` | `peripherals` teleop | `controller` |
+| `controller/cmd_vel` | `geometry_msgs/Twist` | `peripherals` (joystick_control) | `controller` |
 | `/map` | `nav_msgs/OccupancyGrid` | `slam_toolbox` | RViz2, `map_saver_cli` |
-| `/tf` | `tf2_msgs/TFMessage` | `controller`, `robot_state_publisher`, `slam_toolbox` | all nodes |
+| `/tf` | `tf2_msgs/TFMessage` | `controller`, `slam_toolbox` | all nodes |
 
 - `/robot_description` — the full URDF as a string, published once with Transient Local QoS so late-joining subscribers (like RViz2 on the dev machine) still receive it.
+- `/joint_states` — arm and gripper joint angles read from the hardware servos at ~12 Hz; fed into `robot_state_publisher` so the arm renders correctly in RViz2.
 - `/scan` — raw distance readings from the LiDAR, one array of ranges per full rotation.
 - `/odom` — wheel + IMU fused odometry from the vendor EKF; what `slam_toolbox` uses to track robot motion between scans.
-- `/cmd_vel` — velocity command: linear x/y and angular z for Mecanum drive.
+- `controller/cmd_vel` — velocity command: linear x/y and angular z for Mecanum drive.
 - `/map` — 2D occupancy grid where each cell is free (0), occupied (100), or unknown (-1).
 - `/tf` — the transform tree; every node reads this to know where things are in space.
 
@@ -69,21 +70,17 @@ The TF tree tracks the position of every physical part of the robot relative to 
 
 ```
 map
- └── odom                          (slam_toolbox — corrects drift between map and odometry)
-      └── base_footprint            (ekf_filter_node — wheel odometry fusion, ~30 Hz)
-           └── base_link            (robot_state_publisher — rigid offset from footprint, from URDF)
-                ├── lidar_frame     (robot_state_publisher — LiDAR mount position, from URDF)
-                ├── front_left_wheel   (robot_state_publisher — joint state from joint_state_publisher)
-                ├── front_right_wheel  (robot_state_publisher — joint state from joint_state_publisher)
-                ├── rear_left_wheel    (robot_state_publisher — joint state from joint_state_publisher)
-                └── rear_right_wheel   (robot_state_publisher — joint state from joint_state_publisher)
+ └── odom                            (slam_toolbox — corrects drift, ~14 Hz)
+      └── base_footprint             (ekf_filter_node — wheel + IMU fusion, ~30 Hz)
+           └── base_link             (robot_state_publisher — rigid offset from footprint, static)
+                └── lidar_link
+                     └── lidar_frame (static — LiDAR mount position from URDF)
 ```
 
 - `map` — fixed reference frame for the whole room. Published by `slam_toolbox`.
 - `odom` — the robot's starting position. The `map → odom` transform is updated continuously by `slam_toolbox` to correct accumulated odometry drift.
-- `base_footprint` — the 2D floor-projected center of the robot, updated at ~30 Hz by `ekf_filter_node` (`robot_localization` package) fusing `/odom_raw` from the wheel encoders.
+- `base_footprint` — the 2D floor-projected center of the robot, updated at ~30 Hz by `ekf_filter_node` fusing wheel encoder odometry and IMU data.
 - `base_link` — the 3D center of the robot body; a static transform above `base_footprint` defined in the URDF.
-- `lidar_frame` — the LiDAR sensor mount; a static transform relative to `base_link` defined in the URDF. This is the frame that SLAM uses to place each scan in the map.
-- `*_wheel` frames — the four Mecanum wheel positions; static transforms from `base_link` defined in the URDF. `robot_state_publisher` needs joint angles from `/joint_states` (provided by `joint_state_publisher`) to publish these — without them the transforms are unpublished and warnings appear in the logs.
+- `lidar_frame` — the LiDAR sensor origin; a static transform relative to `base_link` defined in the URDF. This is the frame that SLAM uses to place each scan correctly in the map.
 
 When `slam_toolbox` receives a laser scan, it looks up the TF tree to find where `lidar_frame` was in the room at that exact timestamp — that is how it places each scan correctly in the map.

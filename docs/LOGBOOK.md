@@ -497,6 +497,54 @@ It complements the `README.md` (which explains what the project is and how to ru
 
 ---
 
+## 2026-06-01 — Milestone 5 complete: full apartment mapped and saved
+
+- **Goal**
+  - Fix robot model rendering in RViz2, resolve arm flickering, integrate joystick control, complete a full mapping session, and close out project documentation.
+
+- **Context**
+  - Robot: HiWonder JetRover (Jetson Orin Nano), IP: 192.168.2.138
+  - Host: native Ubuntu 22.04, ROS 2 Humble
+  - Stack was previously reverted to vendor launch includes (`controller.launch.py`, `peripherals`) after the Layer 1 rewrite approach proved unnecessary once the vendor EKF was confirmed working
+
+- **Work done**
+  - **RViz2 robot model**: discovered model was not rendering because RViz2 was launched bare (`rviz2`) with no config. Fixed by loading `config/rviz/mapping.rviz` via File → Open Config.
+  - **Arm flickering fix**: diagnosed two `joint_state_publisher` nodes and two `robot_state_publisher` nodes running simultaneously (confirmed via `ros2 topic info /joint_states --verbose` → Publisher count: 2). Root cause: `mapping.launch.py` was launching its own `robot_state_publisher` and `joint_state_publisher`, conflicting with the vendor controller stack which already owns those nodes. Removed both from `mapping.launch.py`.
+  - **Arm init pose**: added `init_pose.launch.py` (from `controller` package) to `mapping.launch.py`. Node waits for `/controller_manager/init_finish` service and sends resting servo positions from `controller/config/init_pose.yaml` (id2: 750, id3: 0, id4: 375). Arm now moves to resting position automatically on startup.
+  - **Joystick control**: added `joystick_control.launch.py` (from `peripherals` package) to `mapping.launch.py`. Reads gamepad input from `ros_robot_controller/joy`, publishes to `controller/cmd_vel`.
+  - **Full mapping session**: drove the robot around the full apartment using the gamepad. Complete map built in a single session.
+  - **Map saved**:
+    - `maps/apartment.pgm` + `maps/apartment.yaml` via `nav2_map_server map_saver_cli`
+    - `maps/apartment.posegraph` via `ros2 service call /slam_toolbox/serialize_map` (enables resuming mapping in future sessions)
+  - **slam_toolbox params**: added `map_file_name` and `map_start_at_dock: true` so the pose graph is loaded on restart
+  - **package.xml**: removed stale `robot_state_publisher`, `joint_state_publisher`, `jetrover_description` dependencies
+  - **Documentation overhaul**:
+    - `README.md`: added Results section with 3 RViz2 screenshots and TF tree; fixed stale dependencies, getting-started commands, and packages table
+    - `docs/architecture.md`: updated pipeline to reflect vendor controller owning robot description; updated teleoperation section (keyboard → gamepad/joystick_control); corrected TF tree frame names from live `.gv` output; removed `joint_state_publisher` references
+    - `docs/images/pipeline.dot` + `pipeline.png`: renamed "Teleop" → "Joystick Controller"; routed through `peripherals`; updated topic label to `controller/cmd_vel`; regenerated PNG
+    - `docs/ROADMAP.md`: marked all Milestone 5 items complete; removed Stretch Goal 1
+    - Added `docs/images/rviz_robot_closeup.png`, `rviz_map_building.png`, `rviz_map_complete.png`, `tf_tree.png`, `tf_tree.pdf`
+
+- **Results**
+  - Robot model renders correctly in RViz2 with no flickering ✓
+  - Arm moves to resting position on startup ✓
+  - Gamepad driving works from launch ✓
+  - Full apartment map built and saved ✓
+  - All five milestones complete ✓
+
+- **Evidence**
+  - `maps/apartment.pgm`, `maps/apartment.yaml`, `maps/apartment.posegraph`
+  - `docs/images/rviz_map_complete.png` — completed apartment map
+  - `docs/images/tf_tree.png` — live TF tree confirming `map → odom → base_footprint → base_link → lidar_frame` chain
+
+- **Blockers / Issues**
+  - None.
+
+- **Next**
+  - Future project: autonomous navigation using the saved map (Nav2 stack).
+
+---
+
 ## Template — copy/paste for new entries
 
 ## YYYY-MM-DD — <short title>
