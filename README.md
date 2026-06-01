@@ -70,12 +70,6 @@ See [`docs/architecture.md`](docs/architecture.md) for a full description of the
 
 ## Dependencies
 
-**Sibling ROS 2 package — must be in the same workspace:**
-
-| Package | Repo | Role |
-|---------|------|------|
-| `jetrover_description` | [jetrover_description](https://github.com/mahersabbagh80/jetrover_description) | URDF + meshes for the JetRover |
-
 **On the Jetson (Humble):**
 
 All dependencies are declared in `package.xml` and installed automatically by `rosdep` (see Getting Started). The key package is `slam_toolbox`. HiWonder packages (`controller`, `peripherals`) are pre-installed on the Jetson and not managed by rosdep.
@@ -112,10 +106,9 @@ ssh ubuntu@192.168.2.138
 # Stop the auto-start service
 sudo systemctl stop start_app_node.service
 
-# Clone both packages into the workspace (if not already present)
+# Clone the package into the workspace (if not already present)
 cd ~/jetson_ws/src
 git clone https://github.com/mahersabbagh80/2D-LiDAR-Mapping-with-SLAM.git
-git clone https://github.com/mahersabbagh80/jetrover_description.git
 
 # Install dependencies
 cd ~/jetson_ws
