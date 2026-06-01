@@ -52,7 +52,18 @@ def generate_launch_description():
     )
 
     # --------------------------------------------------------------------------
-    # 4. SLAM Toolbox (async mode)
+    # 4. Joystick control
+    #    Reads gamepad input from ros_robot_controller and publishes Twist
+    #    commands to controller/cmd_vel to drive the robot.
+    # --------------------------------------------------------------------------
+    joystick = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            os.path.join(peripherals_dir, 'launch', 'joystick_control.launch.py')
+        )
+    )
+
+    # --------------------------------------------------------------------------
+    # 5. SLAM Toolbox (async mode)
     #    Subscribes to /scan and /tf, publishes the occupancy grid map and the
     #    map→odom transform.  Async mode is safe for embedded hardware.
     # --------------------------------------------------------------------------
@@ -66,6 +77,7 @@ def generate_launch_description():
 
     return LaunchDescription([
         controller,
+        joystick,
         init_pose,
         lidar,
         slam,
