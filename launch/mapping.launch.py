@@ -30,7 +30,18 @@ def generate_launch_description():
     )
 
     # --------------------------------------------------------------------------
-    # 2. LiDAR
+    # 2. Arm init pose
+    #    Waits for /controller_manager/init_finish, then sends the resting
+    #    servo positions defined in controller/config/init_pose.yaml.
+    # --------------------------------------------------------------------------
+    init_pose = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            os.path.join(controller_dir, 'launch', 'init_pose.launch.py')
+        )
+    )
+
+    # --------------------------------------------------------------------------
+    # 3. LiDAR
     #    Brings up the RPLidar A1 driver and laser_filters, publishing
     #    filtered scans to /scan — the topic slam_toolbox subscribes to.
     # --------------------------------------------------------------------------
@@ -41,7 +52,7 @@ def generate_launch_description():
     )
 
     # --------------------------------------------------------------------------
-    # 3. SLAM Toolbox (async mode)
+    # 4. SLAM Toolbox (async mode)
     #    Subscribes to /scan and /tf, publishes the occupancy grid map and the
     #    map→odom transform.  Async mode is safe for embedded hardware.
     # --------------------------------------------------------------------------
@@ -55,6 +66,7 @@ def generate_launch_description():
 
     return LaunchDescription([
         controller,
+        init_pose,
         lidar,
         slam,
     ])
