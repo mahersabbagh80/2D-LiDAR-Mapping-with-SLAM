@@ -58,7 +58,7 @@
 ### Milestone 5 — SLAM
 - [x] Launch `slam_toolbox` in online async mode
 - [x] RViz2 config updated (`config/rviz/mapping.rviz`) — Map, LaserScan, TF, and RobotModel displays pre-configured
-- [x] `jetrover_description` package cloned to host workspace (`src/jetrover_description/`) — URDF/xacro for Mecanum chassis + RPLidar A1
+- [x] `jetrover_description` vendored in host workspace (`src/vendor/jetrover_description/`) — URDF/xacro for Mecanum chassis + RPLidar A1
 - [x] `mapping.launch.py` finalised: removed redundant `robot_state_publisher` and `joint_state_publisher` (vendor controller stack owns those); added `init_pose` to move arm to resting position on startup; added `joystick_control` for gamepad driving
 - [x] Deployed to Jetson: pulled latest, `colcon build --symlink-install`, no build errors
 - [x] Confirmed `odom → base_footprint` TF live and robot model renders in RViz2
