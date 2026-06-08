@@ -69,38 +69,13 @@ trigger: always_on
 
 ## Reference: ROS 2 Cross-Machine Network Setup
 
-ROS 2 topics between the Jetson (192.168.2.138) and WSL2 (192.168.2.102) require two fixes applied simultaneously. If discovery breaks after a Windows update or IP change, re-apply both.
+ROS 2 topics between the Jetson (192.168.2.138) and host PC (192.168.2.102) use the verified FastDDS procedure in `docs/cross_machine_dds.md`. Treat that file as the source of truth.
 
-### Fix 1: FastDDS unicast peer config
+Key constraints:
 
-**WSL2** — `/home/maher/fastdds.xml`:
-```xml
-<?xml version="1.0" encoding="UTF-8" ?>
-<profiles xmlns="http://www.eprosima.com/XMLSchemas/fastRTPS_Profiles">
-    <participant profile_name="unicast_connection" is_default_profile="true">
-        <rtps>
-            <builtin>
-                <avoid_builtin_multicast>true</avoid_builtin_multicast>
-                <initialPeersList>
-                    <locator><udpv4><address>192.168.2.138</address></udpv4></locator>
-                </initialPeersList>
-            </builtin>
-        </rtps>
-    </participant>
-</profiles>
-```
+- Each machine has `~/fastdds.xml` pointing at the other machine's current IP address.
+- The XML explicitly lists metatraffic unicast ports for participant IDs 0-99 (`7410`, `7412`, ..., `7608`); IP-only peers discover too few nodes.
+- Both machines set `FASTRTPS_DEFAULT_PROFILES_FILE=~/fastdds.xml` and `ROS_DOMAIN_ID=0` before starting ROS 2 processes.
+- Initial endpoint matching can take 5-15 seconds, so short `ros2 topic echo --once` tests can look like failures.
 
-**Jetson** — `/home/ubuntu/fastdds.xml` (same but peer IP is 192.168.2.102).
-
-Both machines have this in `~/.zshrc`:
-```zsh
-export FASTRTPS_DEFAULT_PROFILES_FILE=~/fastdds.xml
-```
-
-### Fix 2: Windows Firewall rule (run once as Administrator in PowerShell)
-
-```powershell
-New-NetFirewallRule -DisplayName "ROS2 DDS - Allow UDP from LAN" -Direction Inbound -Protocol UDP -RemoteAddress 192.168.2.0/24 -Action Allow
-```
-
-> IPs are hardcoded — if either machine gets a new DHCP lease, update the peer address in both `fastdds.xml` files.
+> IPs are hardcoded. If either machine gets a new DHCP lease, update the peer address in both `fastdds.xml` files and restart the ROS 2 daemon/processes.

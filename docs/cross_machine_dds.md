@@ -127,12 +127,17 @@ On the **Jetson** (open a bash terminal):
 ros2 launch two_d_lidar_mapping_with_slam mapping.launch.py
 ```
 
-On the **PC** (open a terminal):
+For normal robot-side operation, prefer the repository helper script because it stops stale mapping nodes, sources the Jetson workspaces, restarts the ROS 2 daemon with the FastDDS profile, and then runs the same launch file:
 ```bash
-rviz2
+zsh ~/jetson_ws/src/2D-LiDAR-Mapping-with-SLAM/scripts/run_mapping.sh
 ```
 
-RViz should discover all topics within ~15 seconds. Add a **Map** display with topic `/map` to see the occupancy grid.
+On the **PC** (open a terminal from a local checkout of this repo):
+```bash
+rviz2 -d config/rviz/mapping.rviz
+```
+
+RViz should discover all topics within ~15 seconds. The checked-in config already loads the RobotModel, Map (`/map`), LaserScan (`/scan`), and TF displays with the QoS settings used during the successful mapping session.
 
 ---
 

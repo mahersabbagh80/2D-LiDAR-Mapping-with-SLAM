@@ -60,9 +60,12 @@ See [`docs/architecture.md`](docs/architecture.md) for a full description of the
 ├── launch/
 │   └── mapping.launch.py        # controller + arm init + LiDAR + joystick + SLAM
 ├── maps/                        # saved maps (.pgm, .yaml, .posegraph)
+├── scripts/
+│   └── run_mapping.sh           # Jetson helper for a clean mapping launch
 └── docs/
     ├── ROADMAP.md               # goals, success criteria, and milestones
     ├── architecture.md
+    ├── cross_machine_dds.md     # host ↔ Jetson DDS runbook
     └── images/
 ```
 
@@ -95,6 +98,16 @@ For visualization, run RViz2 natively on your host machine — it connects to th
 
 > Note: `192.168.2.138` is a DHCP-assigned IP — update this if it changes.
 
+### Runtime entry points
+
+| File | Use it for | What it starts/configures |
+|------|------------|---------------------------|
+| `launch/mapping.launch.py` | The ROS 2 launch entry point | HiWonder `controller.launch.py`, `init_pose.launch.py`, `peripherals/lidar.launch.py`, `peripherals/joystick_control.launch.py`, and `slam_toolbox` in async mapping mode with `config/slam_toolbox_params.yaml` |
+| `scripts/run_mapping.sh` | Normal Jetson-side operator launch | Stops the HiWonder auto-start service, clears leftover mapping nodes, sources the ROS/vendor/project workspaces listed in the script, restarts the ROS 2 daemon with `~/fastdds.xml`, sets JetRover environment variables, then execs `mapping.launch.py` |
+| `config/rviz/mapping.rviz` | Host-side visualization | RViz2 layout with fixed frame `map`, RobotModel from `/robot_description`, Map `/map` with transient-local durability, LaserScan `/scan`, and TF displays |
+
+Use `scripts/run_mapping.sh` when launching on the robot for a mapping session. If your workspace paths differ from the hard-coded Jetson paths in the script, update the `source .../local_setup.zsh` lines before running it.
+
 ---
 
 ## Getting Started
@@ -119,27 +132,47 @@ rosdep install --from-paths src --ignore-src -r -y
 colcon build --symlink-install
 source install/setup.zsh
 
-# Launch the full mapping stack (controller + arm init + LiDAR + joystick + SLAM)
-ros2 launch two_d_lidar_mapping_with_slam mapping.launch.py
+# Launch the full mapping stack from a clean Jetson session
+zsh src/2D-LiDAR-Mapping-with-SLAM/scripts/run_mapping.sh
+
+# Or, if the environment is already sourced and clean:
+# ros2 launch two_d_lidar_mapping_with_slam mapping.launch.py
 ```
 
 Drive the robot with the gamepad. On the host, open RViz2 with the pre-configured layout:
 
 ```zsh
-rviz2 -d /config/rviz/mapping.rviz
-# or load it via File → Open Config inside RViz2
+# From a local checkout of this repo:
+rviz2 -d config/rviz/mapping.rviz
+
+# Or, if the package is installed in the current ROS environment:
+rviz2 -d "$(ros2 pkg prefix two_d_lidar_mapping_with_slam)/share/two_d_lidar_mapping_with_slam/config/rviz/mapping.rviz"
 ```
 
 When done, save the map (run on the Jetson while the stack is still up):
 
 ```zsh
-# Standard map files (.pgm + .yaml) for nav2
-ros2 run nav2_map_server map_saver_cli -f /2D-LiDAR-Mapping-with-SLAM/maps/
+# Standard map files (.pgm + .yaml) for nav2.
+# Use a file prefix, not a directory.
+ros2 run nav2_map_server map_saver_cli \
+  -f ~/jetson_ws/src/2D-LiDAR-Mapping-with-SLAM/maps/apartment \
+  --ros-args -p map_subscribe_transient_local:=true
 
 # Pose graph (.data + .posegraph) — lets you resume mapping in a future session
 ros2 service call /slam_toolbox/serialize_map slam_toolbox/srv/SerializePoseGraph \
   "{filename: '/home/ubuntu/jetson_ws/src/2D-LiDAR-Mapping-with-SLAM/maps/apartment'}"
 ```
+
+---
+
+## Troubleshooting Quick Checks
+
+| Symptom | Check | Likely fix |
+|---------|-------|------------|
+| Host RViz2 shows no robot topics | `ros2 topic list` on the host, then wait up to 15 seconds and retry | Recheck [`docs/cross_machine_dds.md`](docs/cross_machine_dds.md): both machines need matching `ROS_DOMAIN_ID=0` and a `~/fastdds.xml` that points at the other machine's current IP |
+| RViz2 says `Frame [map] does not exist` | On the Jetson: `ros2 topic echo /scan --once`, `ros2 topic echo /odom --once`, and `ros2 run tf2_ros tf2_echo odom base_footprint` | Start the stack with `scripts/run_mapping.sh` so stale nodes are cleared and the vendor controller publishes `odom -> base_footprint` before `slam_toolbox` builds `map -> odom` |
+| Robot model is missing or arm flickers in RViz2 | `ros2 topic info /joint_states --verbose` should not show duplicate robot-state sources from this package | Use `config/rviz/mapping.rviz`; do not launch extra `robot_state_publisher` or `joint_state_publisher` nodes because the vendor `controller` stack owns the URDF and joint states |
+| `two_d_lidar_mapping_with_slam` package is not found on the Jetson | `ros2 pkg prefix two_d_lidar_mapping_with_slam` | Rebuild with `colcon build --symlink-install`, source the install space, and confirm `scripts/run_mapping.sh` sources the workspace where this package was built |
 
 ---
 
