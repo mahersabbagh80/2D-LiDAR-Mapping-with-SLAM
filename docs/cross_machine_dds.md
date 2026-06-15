@@ -115,24 +115,39 @@ export FASTRTPS_DEFAULT_PROFILES_FILE=~/fastdds.xml
 export ROS_DOMAIN_ID=0
 ```
 
-On the **Jetson**: this is set in `~/.bashrc` (uncommented).  
+On the **Jetson**: `scripts/run_mapping.sh` exports both before launching the mapping stack; keep the shell startup file synchronized if you run ad-hoc ROS CLI commands outside the script.
 On the **PC**: this is set in `~/.zshrc`.
 
 ---
 
 ## Usage
 
-On the **Jetson** (open a bash terminal):
+On the **Jetson** (open a shell after building and sourcing `/home/ubuntu/my_projects/mapping_ws/install/setup.zsh`):
+
 ```bash
-ros2 launch two_d_lidar_mapping_with_slam mapping.launch.py
+zsh "$(ros2 pkg prefix two_d_lidar_mapping_with_slam)/share/two_d_lidar_mapping_with_slam/scripts/run_mapping.sh"
 ```
 
-On the **PC** (open a terminal):
+The run script exports `FASTRTPS_DEFAULT_PROFILES_FILE=~/fastdds.xml`, stops the HiWonder auto-start service, clears stale ROS nodes from previous sessions, sources the vendor and mapping workspaces, restarts the ROS 2 daemon so it uses the FastDDS profile, and launches `mapping.launch.py`.
+
+On the **PC** (open a terminal after setting `FASTRTPS_DEFAULT_PROFILES_FILE=~/fastdds.xml` and `ROS_DOMAIN_ID=0`):
+
 ```bash
-rviz2
+# If this package is built and sourced on the PC:
+rviz2 -d "$(ros2 pkg prefix two_d_lidar_mapping_with_slam)/share/two_d_lidar_mapping_with_slam/config/rviz/mapping.rviz"
+
+# Or, from a checkout of this repository:
+rviz2 -d config/rviz/mapping.rviz
 ```
 
-RViz should discover all topics within ~15 seconds. Add a **Map** display with topic `/map` to see the occupancy grid.
+RViz should discover all topics within ~15 seconds. The committed layout already has:
+
+- fixed frame `map`
+- RobotModel from `/robot_description` with Transient Local durability
+- Map display on `/map` with updates from `/map_updates`
+- LaserScan display on `/scan` with Best Effort reliability
+
+If RViz starts before SLAM publishes `map`, it may temporarily report `Frame [map] does not exist`; this clears once `slam_toolbox` publishes the first map transform.
 
 ---
 
@@ -148,6 +163,11 @@ ros2 topic list
 timeout 15 ros2 topic echo /scan --once
 ```
 (Use at least 8 seconds — SEDP matching takes time on first connection.)
+
+**Check if the robot model is available to late-joining RViz:**
+```bash
+timeout 15 ros2 topic echo /robot_description --once
+```
 
 **Check subscription count for a topic:**
 ```bash

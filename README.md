@@ -55,14 +55,17 @@ See [`docs/architecture.md`](docs/architecture.md) for a full description of the
 │   ├── slam_toolbox_params.yaml
 │   └── rviz/
 │       └── mapping.rviz
-├── two_d_lidar_mapping_with_slam/
-│   └── __init__.py
 ├── launch/
 │   └── mapping.launch.py        # controller + arm init + LiDAR + joystick + SLAM
-├── maps/                        # saved maps (.pgm, .yaml, .posegraph)
+├── maps/                        # saved map outputs (.pgm, .yaml; optional pose graph)
+├── scripts/
+│   └── run_mapping.sh           # Jetson runbook: DDS env, cleanup, workspace sourcing
+├── two_d_lidar_mapping_with_slam/
+│   └── __init__.py
 └── docs/
     ├── ROADMAP.md               # goals, success criteria, and milestones
     ├── architecture.md
+    ├── cross_machine_dds.md     # host-to-Jetson discovery setup
     └── images/
 ```
 
@@ -72,7 +75,7 @@ See [`docs/architecture.md`](docs/architecture.md) for a full description of the
 
 **On the Jetson (Humble):**
 
-All dependencies are declared in `package.xml` and installed automatically by `rosdep` (see Getting Started). The key package is `slam_toolbox`. HiWonder packages (`controller`, `peripherals`) are pre-installed on the Jetson and not managed by rosdep.
+This package directly launches `slam_toolbox` plus the HiWonder `controller` and `peripherals` packages. `controller` and `peripherals` are pre-installed on the Jetson and are runtime dependencies of the robot image, not packages managed by this repository.
 
 **On the host (Humble):**
 ```zsh
@@ -103,15 +106,13 @@ For visualization, run RViz2 natively on your host machine — it connects to th
 # SSH into the Jetson
 ssh ubuntu@192.168.2.138
 
-# Stop the auto-start service
-sudo systemctl stop start_app_node.service
-
-# Clone the package into the workspace (if not already present)
-cd ~/jetson_ws/src
+# Clone the package into the workspace used by scripts/run_mapping.sh
+mkdir -p ~/my_projects/mapping_ws/src
+cd ~/my_projects/mapping_ws/src
 git clone https://github.com/mahersabbagh80/2D-LiDAR-Mapping-with-SLAM.git
 
 # Install dependencies
-cd ~/jetson_ws
+cd ~/my_projects/mapping_ws
 rosdep update
 rosdep install --from-paths src --ignore-src -r -y
 
@@ -119,27 +120,36 @@ rosdep install --from-paths src --ignore-src -r -y
 colcon build --symlink-install
 source install/setup.zsh
 
-# Launch the full mapping stack (controller + arm init + LiDAR + joystick + SLAM)
-ros2 launch two_d_lidar_mapping_with_slam mapping.launch.py
+# Launch the full mapping stack with the Jetson runbook
+zsh "$(ros2 pkg prefix two_d_lidar_mapping_with_slam)/share/two_d_lidar_mapping_with_slam/scripts/run_mapping.sh"
 ```
 
-Drive the robot with the gamepad. On the host, open RViz2 with the pre-configured layout:
+`scripts/run_mapping.sh` stops the HiWonder auto-start service, kills stale ROS nodes from prior sessions, exports the FastDDS unicast profile, sources the vendor and mapping workspaces, restarts the ROS 2 daemon, sets the JetRover environment (`LIDAR_TYPE=A1`, `MACHINE_TYPE=JetRover_Mecanum`, `ROS_DOMAIN_ID=0`), and then runs `mapping.launch.py`.
+
+Drive the robot with the gamepad. On the host, make sure the FastDDS profile from [`docs/cross_machine_dds.md`](docs/cross_machine_dds.md) is active, then open RViz2 with the pre-configured layout:
 
 ```zsh
-rviz2 -d /config/rviz/mapping.rviz
-# or load it via File → Open Config inside RViz2
+# If this package is built and sourced on the host:
+rviz2 -d "$(ros2 pkg prefix two_d_lidar_mapping_with_slam)/share/two_d_lidar_mapping_with_slam/config/rviz/mapping.rviz"
+
+# Or, from a checkout of this repository:
+rviz2 -d config/rviz/mapping.rviz
 ```
+
+RViz uses `map` as its fixed frame, subscribes to `/robot_description` with Transient Local durability so the robot model appears for late-joining RViz sessions, and displays `/map`, `/map_updates`, and `/scan`. It can take up to about 15 seconds after startup for DDS endpoint matching to complete over WiFi.
 
 When done, save the map (run on the Jetson while the stack is still up):
 
 ```zsh
 # Standard map files (.pgm + .yaml) for nav2
-ros2 run nav2_map_server map_saver_cli -f /2D-LiDAR-Mapping-with-SLAM/maps/
+ros2 run nav2_map_server map_saver_cli -f /home/ubuntu/my_projects/mapping_ws/src/2D-LiDAR-Mapping-with-SLAM/maps/apartment
 
 # Pose graph (.data + .posegraph) — lets you resume mapping in a future session
 ros2 service call /slam_toolbox/serialize_map slam_toolbox/srv/SerializePoseGraph \
-  "{filename: '/home/ubuntu/jetson_ws/src/2D-LiDAR-Mapping-with-SLAM/maps/apartment'}"
+  "{filename: '/home/ubuntu/my_projects/mapping_ws/src/2D-LiDAR-Mapping-with-SLAM/maps/apartment'}"
 ```
+
+`map_saver_cli -f` expects a basename, not a directory. If you copy or rename committed map assets, keep the `.yaml` `image:` value and the `.pgm` filename in sync or `map_server` will fail to load the map.
 
 ---
 
@@ -183,9 +193,8 @@ Matches the expected `map → odom → base_footprint → base_link → lidar_li
 | Package | Type | Role | Docs / Source |
 |---------|------|------|---------------|
 | `slam_toolbox` | Community | SLAM — builds the map, publishes `map → odom` TF | [GitHub](https://github.com/SteveMacenski/slam_toolbox) |
-| `robot_localization` (ekf_filter_node) | Community | Fuses wheel odometry, publishes `odom → base_footprint` TF | [GitHub](https://github.com/cra-ros-pkg/robot_localization) · [Docs](https://docs.ros.org/en/humble/p/robot_localization/) |
-| `laser_filters` (scan_to_scan_filter_chain) | Official ROS | Filters raw LiDAR scan before SLAM | [GitHub](https://github.com/ros-perception/laser_filters) · [Docs](https://docs.ros.org/en/humble/p/laser_filters/) |
-| `sllidar_ros2` (sllidar_node) | Hardware vendor (SLAMTEC, open source) | RPLidar A1 hardware driver | [GitHub](https://github.com/Slamtec/sllidar_ros2) |
-| `ros_robot_controller` | Vendor (HiWonder, **closed source**) | Serial protocol driver to motor board — hardware interface | Pre-installed on Jetson |
-| `controller` | Vendor (HiWonder, **closed source**) | Wheel odometry, EKF, servo control, arm init pose | Pre-installed on Jetson |
-| `peripherals` | Vendor (HiWonder, **closed source**) | LiDAR driver launch, joystick control node | Pre-installed on Jetson |
+| `controller` | Vendor (HiWonder, **closed source**) | Wheel odometry and EKF, `/odom`, `odom → base_footprint`, `/robot_description`, `robot_state_publisher`, servo joint states, arm init pose | Pre-installed on Jetson |
+| `peripherals` | Vendor (HiWonder, **closed source**) | RPLidar A1 launch, scan filtering, and joystick control | Pre-installed on Jetson |
+| `ros_robot_controller` | Vendor (HiWonder, **closed source**) | Hardware interface used by the vendor controller/peripherals stack | Pre-installed on Jetson |
+
+This repository declares only `slam_toolbox`, `controller`, and `peripherals` in `package.xml`. Lower-level LiDAR, filter, and hardware-interface nodes are brought in by the vendor launch files rather than launched directly here.

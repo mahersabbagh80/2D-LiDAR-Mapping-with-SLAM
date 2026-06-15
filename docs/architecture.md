@@ -17,9 +17,14 @@ peripherals ──/scan───────────────────
 
 - `controller` (HiWonder) owns the full robot description stack: `robot_state_publisher` reads the URDF and publishes `/robot_description` (so RViz2 can render the 3D model) and static TF transforms between links (e.g. `base_link → lidar_link`). The servo controller reads hardware joint angles and publishes `/joint_states`, which `robot_state_publisher` uses to broadcast the arm transforms.
 - `controller` also runs the full odometry stack: reads wheel encoders, filters the IMU, and fuses both through its built-in EKF. It publishes `/odom` and the `odom → base_footprint` transform.
-- `peripherals` (HiWonder, wraps `sllidar_ros2`) reads the RPLidar A1 and publishes `/scan`.
+- `controller` `init_pose.launch.py` waits for `/controller_manager/init_finish`, then sends the resting arm pose from the vendor `controller/config/init_pose.yaml` so the arm is stable for mapping.
+- `peripherals` (HiWonder, wraps the RPLidar A1 driver and scan filtering) reads the LiDAR and publishes `/scan`.
 - `slam_toolbox` consumes `/scan` and the TF tree to build the occupancy-grid map and publish it on `/map`.
-- RViz2 displays the live map and the 3D robot model; `map_saver_cli` saves the map to disk at the end of a session.
+- RViz2 displays the live map and the 3D robot model using `config/rviz/mapping.rviz`; `map_saver_cli` saves the map to disk at the end of a session.
+
+`launch/mapping.launch.py` composes these pieces in one stack: vendor `controller`, vendor `joystick_control`, vendor `init_pose`, vendor LiDAR launch, and `slam_toolbox`.
+
+Do not add separate `robot_state_publisher` or `joint_state_publisher` nodes to this launch file. The vendor `controller` stack already owns `/robot_description`, `/joint_states`, and link TF; duplicating those publishers causes conflicting joint-state updates and visible arm flicker in RViz2.
 
 ### Teleoperation — gamepad to wheels
 
@@ -71,7 +76,7 @@ The TF tree tracks the position of every physical part of the robot relative to 
 ```
 map
  └── odom                            (slam_toolbox — corrects drift, ~14 Hz)
-      └── base_footprint             (ekf_filter_node — wheel + IMU fusion, ~30 Hz)
+      └── base_footprint             (controller vendor EKF — wheel + IMU fusion, ~30 Hz)
            └── base_link             (robot_state_publisher — rigid offset from footprint, static)
                 └── lidar_link
                      └── lidar_frame (static — LiDAR mount position from URDF)
@@ -79,7 +84,7 @@ map
 
 - `map` — fixed reference frame for the whole room. Published by `slam_toolbox`.
 - `odom` — the robot's starting position. The `map → odom` transform is updated continuously by `slam_toolbox` to correct accumulated odometry drift.
-- `base_footprint` — the 2D floor-projected center of the robot, updated at ~30 Hz by `ekf_filter_node` fusing wheel encoder odometry and IMU data.
+- `base_footprint` — the 2D floor-projected center of the robot, updated at ~30 Hz by the vendor `controller` EKF fusing wheel encoder odometry and IMU data.
 - `base_link` — the 3D center of the robot body; a static transform above `base_footprint` defined in the URDF.
 - `lidar_frame` — the LiDAR sensor origin; a static transform relative to `base_link` defined in the URDF. This is the frame that SLAM uses to place each scan correctly in the map.
 
