@@ -68,5 +68,6 @@
   ros2 run nav2_map_server map_saver_cli -f ~/jetson_ws/src/2D-LiDAR-Mapping-with-SLAM/maps/apartment
   ros2 service call /slam_toolbox/serialize_map slam_toolbox/srv/SerializePoseGraph "{filename: '/home/ubuntu/jetson_ws/src/2D-LiDAR-Mapping-with-SLAM/maps/apartment'}"
   ```
+  Current checkout note: `maps/apartment.yaml` references `apartment.pgm`, but the tracked PGM file is spelled `apratment.pgm`. Rename/copy the PGM or update the YAML `image:` field before loading this checked-in map.
 
 **Done when:** Driving a closed loop produces a recognisable map; robot model visible in RViz2; `.pgm`, `.yaml`, and `.posegraph` files saved and committed.

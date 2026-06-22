@@ -69,38 +69,12 @@ trigger: always_on
 
 ## Reference: ROS 2 Cross-Machine Network Setup
 
-ROS 2 topics between the Jetson (192.168.2.138) and WSL2 (192.168.2.102) require two fixes applied simultaneously. If discovery breaks after a Windows update or IP change, re-apply both.
+Use `docs/cross_machine_dds.md` as the maintained source of truth for Jetson-to-host DDS discovery.
 
-### Fix 1: FastDDS unicast peer config
+Current high-level constraints:
 
-**WSL2** — `/home/maher/fastdds.xml`:
-```xml
-<?xml version="1.0" encoding="UTF-8" ?>
-<profiles xmlns="http://www.eprosima.com/XMLSchemas/fastRTPS_Profiles">
-    <participant profile_name="unicast_connection" is_default_profile="true">
-        <rtps>
-            <builtin>
-                <avoid_builtin_multicast>true</avoid_builtin_multicast>
-                <initialPeersList>
-                    <locator><udpv4><address>192.168.2.138</address></udpv4></locator>
-                </initialPeersList>
-            </builtin>
-        </rtps>
-    </participant>
-</profiles>
-```
-
-**Jetson** — `/home/ubuntu/fastdds.xml` (same but peer IP is 192.168.2.102).
-
-Both machines have this in `~/.zshrc`:
-```zsh
-export FASTRTPS_DEFAULT_PROFILES_FILE=~/fastdds.xml
-```
-
-### Fix 2: Windows Firewall rule (run once as Administrator in PowerShell)
-
-```powershell
-New-NetFirewallRule -DisplayName "ROS2 DDS - Allow UDP from LAN" -Direction Inbound -Protocol UDP -RemoteAddress 192.168.2.0/24 -Action Allow
-```
-
-> IPs are hardcoded — if either machine gets a new DHCP lease, update the peer address in both `fastdds.xml` files.
+- The Jetson and host both use FastDDS unicast peers because the router blocks multicast between WiFi clients.
+- Peer locators must enumerate the expected participant ports, not only the peer IP, or higher participant IDs stay invisible.
+- `scripts/run_mapping.sh` exports `FASTRTPS_DEFAULT_PROFILES_FILE=~/fastdds.xml` and restarts the ROS 2 daemon before launching the mapping stack.
+- Do not put `<avoid_builtin_multicast>true</avoid_builtin_multicast>` in the Jetson profile for this stack; local robot-side FastDDS delivery must keep built-in multicast available.
+- The peer IPs are hardcoded. If DHCP changes either machine's address, update `~/fastdds.xml` on both machines before debugging ROS topics.

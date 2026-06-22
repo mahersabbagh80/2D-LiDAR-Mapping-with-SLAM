@@ -60,6 +60,8 @@ See [`docs/architecture.md`](docs/architecture.md) for a full description of the
 ├── launch/
 │   └── mapping.launch.py        # controller + arm init + LiDAR + joystick + SLAM
 ├── maps/                        # saved maps (.pgm, .yaml, .posegraph)
+├── scripts/
+│   └── run_mapping.sh           # Jetson-side runbook wrapper for mapping sessions
 └── docs/
     ├── ROADMAP.md               # goals, success criteria, and milestones
     ├── architecture.md
@@ -119,27 +121,58 @@ rosdep install --from-paths src --ignore-src -r -y
 colcon build --symlink-install
 source install/setup.zsh
 
-# Launch the full mapping stack (controller + arm init + LiDAR + joystick + SLAM)
-ros2 launch two_d_lidar_mapping_with_slam mapping.launch.py
+# Launch the full mapping stack using the Jetson runbook wrapper
+zsh ~/jetson_ws/src/2D-LiDAR-Mapping-with-SLAM/scripts/run_mapping.sh
 ```
 
-Drive the robot with the gamepad. On the host, open RViz2 with the pre-configured layout:
+`scripts/run_mapping.sh` is the recommended operator entry point on the Jetson. It stops the HiWonder auto-start service, clears stale mapping nodes, sources the ROS/vendor/mapping workspaces, restarts the ROS 2 daemon with the FastDDS profile, exports the JetRover hardware environment variables, and finally launches `mapping.launch.py`.
+
+Drive the robot with the gamepad. On the host, open RViz2 with the pre-configured layout from a local checkout:
 
 ```zsh
-rviz2 -d /config/rviz/mapping.rviz
-# or load it via File → Open Config inside RViz2
+rviz2 -d /path/to/2D-LiDAR-Mapping-with-SLAM/config/rviz/mapping.rviz
 ```
 
-When done, save the map (run on the Jetson while the stack is still up):
+If the package is built and sourced on the host, the installed config can also be loaded from the package share directory:
+
+```zsh
+rviz2 -d "$(ros2 pkg prefix two_d_lidar_mapping_with_slam)/share/two_d_lidar_mapping_with_slam/config/rviz/mapping.rviz"
+```
+
+When done, save the map (run on the Jetson while the stack is still up). The `-f` argument is an output filename prefix, not a directory:
 
 ```zsh
 # Standard map files (.pgm + .yaml) for nav2
-ros2 run nav2_map_server map_saver_cli -f /2D-LiDAR-Mapping-with-SLAM/maps/
+ros2 run nav2_map_server map_saver_cli \
+  -f /home/ubuntu/jetson_ws/src/2D-LiDAR-Mapping-with-SLAM/maps/apartment \
+  --ros-args -p map_subscribe_transient_local:=true
 
 # Pose graph (.data + .posegraph) — lets you resume mapping in a future session
 ros2 service call /slam_toolbox/serialize_map slam_toolbox/srv/SerializePoseGraph \
   "{filename: '/home/ubuntu/jetson_ws/src/2D-LiDAR-Mapping-with-SLAM/maps/apartment'}"
 ```
+
+Keep the saved YAML `image:` value and the PGM filename synchronized before loading the map with `map_server`. For example, `maps/apartment.yaml` must sit next to `maps/apartment.pgm` if it contains `image: apartment.pgm`.
+
+> Current artifact caveat: this checkout tracks `maps/apratment.pgm` while `maps/apartment.yaml` contains `image: apartment.pgm`. Rename/copy the PGM to `apartment.pgm`, or update the YAML `image:` field, before loading the checked-in map.
+
+### Mapping session checklist
+
+1. Put the JetRover on the mapping network and confirm the Jetson/host IPs match `~/fastdds.xml` on both machines.
+2. SSH to the Jetson and stop any old session with `Ctrl+C` or by rerunning `scripts/run_mapping.sh`.
+3. Start the stack with `zsh ~/jetson_ws/src/2D-LiDAR-Mapping-with-SLAM/scripts/run_mapping.sh`.
+4. Wait for `/scan`, `/odom`, `/tf`, and `/map` to appear, then open RViz2 on the host with `config/rviz/mapping.rviz`.
+5. Drive slowly with the gamepad; avoid fast turns that smear scans or cause wheel slip.
+6. Save both the occupancy grid and pose graph before shutting the stack down.
+
+### Common pitfalls
+
+| Symptom | Check / fix |
+|---------|-------------|
+| `ros2 launch ... mapping.launch.py` works inconsistently | Use `scripts/run_mapping.sh`; direct launch assumes all ROS workspaces and JetRover environment variables are already set. |
+| Host RViz2 cannot see robot topics | Confirm both machines use the same `ROS_DOMAIN_ID`, `FASTRTPS_DEFAULT_PROFILES_FILE=~/fastdds.xml`, and peer IPs in `docs/cross_machine_dds.md`. Discovery may take 5-15 seconds. |
+| RViz2 shows no robot model or the arm flickers | Do not launch extra `robot_state_publisher` or `joint_state_publisher` nodes; the vendor `controller` launch owns `/robot_description` and `/joint_states`. |
+| `map_server` cannot load a saved map | Ensure the YAML `image:` filename exactly matches the PGM file next to it; in this checkout, resolve the `apratment.pgm` / `apartment.pgm` mismatch first. `map_saver_cli -f` should be a file prefix such as `maps/apartment`. |
 
 ---
 
