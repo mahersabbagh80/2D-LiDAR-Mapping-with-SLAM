@@ -42,6 +42,33 @@ peripherals (joystick_control)  ──controller/cmd_vel──►  controller  �
 
 ---
 
+## Launch composition
+
+The mapping stack is launched by `launch/mapping.launch.py` and usually started through `scripts/run_mapping.sh` on the Jetson.
+
+`mapping.launch.py` includes four vendor launch files/nodes plus SLAM:
+
+1. `controller/launch/controller.launch.py`
+   - Starts the HiWonder controller stack with its default odometry enabled.
+   - Owns `/robot_description`, `/joint_states`, `/odom`, and `odom -> base_footprint`.
+2. `controller/launch/init_pose.launch.py`
+   - Waits for `/controller_manager/init_finish`.
+   - Sends the resting arm servo pose from `controller/config/init_pose.yaml`.
+3. `peripherals/launch/lidar.launch.py`
+   - Starts the RPLidar A1 driver and filter chain.
+   - Publishes filtered scans on `/scan`.
+4. `peripherals/launch/joystick_control.launch.py`
+   - Reads gamepad input and publishes `controller/cmd_vel`.
+5. `slam_toolbox` `async_slam_toolbox_node`
+   - Uses `config/slam_toolbox_params.yaml`.
+   - Consumes `/scan` plus TF and publishes `/map` plus `map -> odom`.
+
+Do not add a second `robot_state_publisher` or `joint_state_publisher` to this launch file. The vendor controller stack already publishes the robot description, joint states, and body-link TFs. Running duplicate publishers causes RViz2 model flicker and ambiguous topic publishers.
+
+`scripts/run_mapping.sh` is an operational wrapper around the launch file. It stops the vendor auto-start service, kills stale mapping nodes, sources the ROS/vendor/mapping workspaces, restarts the ROS 2 daemon with the FastDDS profile, exports JetRover hardware environment variables (`LIDAR_TYPE=A1`, `MACHINE_TYPE=JetRover_Mecanum`, and related vendor settings), then executes the launch file.
+
+---
+
 ## Topics
 
 | Topic | Message Type | Publisher | Subscriber(s) |

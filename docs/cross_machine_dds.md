@@ -115,8 +115,11 @@ export FASTRTPS_DEFAULT_PROFILES_FILE=~/fastdds.xml
 export ROS_DOMAIN_ID=0
 ```
 
-On the **Jetson**: this is set in `~/.bashrc` (uncommented).  
-On the **PC**: this is set in `~/.zshrc`.
+On the **Jetson**: `scripts/run_mapping.sh` exports `FASTRTPS_DEFAULT_PROFILES_FILE=~/fastdds.xml` for the mapping stack and restarts the ROS 2 daemon so discovery uses the profile. Keeping the same export in `~/.bashrc` is also useful for ad hoc `ros2 topic` and `ros2 service` commands.
+
+On the **PC**: set the export in the shell that launches RViz2 (for this project, `~/.zshrc`).
+
+Do not set `<avoid_builtin_multicast>true</avoid_builtin_multicast>` in the Jetson profile for this stack. The current script assumes the Jetson `~/fastdds.xml` keeps the explicit `initialPeersList` but does not disable built-in multicast, which preserves local FastDDS delivery between robot-side processes while still probing the host over unicast.
 
 ---
 
@@ -124,15 +127,15 @@ On the **PC**: this is set in `~/.zshrc`.
 
 On the **Jetson** (open a bash terminal):
 ```bash
-ros2 launch two_d_lidar_mapping_with_slam mapping.launch.py
+zsh ~/jetson_ws/src/2D-LiDAR-Mapping-with-SLAM/scripts/run_mapping.sh
 ```
 
 On the **PC** (open a terminal):
 ```bash
-rviz2
+rviz2 -d /path/to/2D-LiDAR-Mapping-with-SLAM/config/rviz/mapping.rviz
 ```
 
-RViz should discover all topics within ~15 seconds. Add a **Map** display with topic `/map` to see the occupancy grid.
+RViz should discover all topics within ~15 seconds. The repository RViz config already includes Map (`/map`), LaserScan (`/scan`), TF, and RobotModel displays.
 
 ---
 
@@ -168,6 +171,7 @@ sudo /usr/bin/tcpdump -i wlan0 -n 'udp and src host 192.168.2.102' | head -20
 |---|---|
 | Default DDS (no profile) | Router blocks multicast |
 | `initialPeersList` with IP only (no port) | Only probes IDs 0–3, misses most nodes |
+| `<avoid_builtin_multicast>true</avoid_builtin_multicast>` on the Jetson | Can break local FastDDS data delivery between robot-side processes; keep multicast enabled locally and use explicit unicast peers for cross-machine discovery |
 | `useBuiltinTransports=false` | Removes standard RTPS port binding; discovery breaks |
 | `metatrafficUnicastLocatorList` without a port | Advertises port 0 (invalid), SEDP never reaches peers |
 | `initialAnnouncements` XML tag | Invalid in FastDDS 2.6 — silently invalidates the entire profile |
