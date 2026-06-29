@@ -64,6 +64,7 @@
 - [x] Confirmed `odom → base_footprint` TF live and robot model renders in RViz2
 - [x] Drove the robot around the apartment and built a complete map
 - [x] Map saved to `maps/apartment.pgm` / `maps/apartment.yaml` and `maps/apartment.posegraph` (pose graph for resuming)
+  - Repository caveat: the checked-in PGM is currently misspelled as `maps/apratment.pgm` while `maps/apartment.yaml` references `apartment.pgm`; keep these names synchronized before loading the map with Nav2.
   ```bash
   ros2 run nav2_map_server map_saver_cli -f ~/jetson_ws/src/2D-LiDAR-Mapping-with-SLAM/maps/apartment
   ros2 service call /slam_toolbox/serialize_map slam_toolbox/srv/SerializePoseGraph "{filename: '/home/ubuntu/jetson_ws/src/2D-LiDAR-Mapping-with-SLAM/maps/apartment'}"
