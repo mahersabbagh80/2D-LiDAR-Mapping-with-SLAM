@@ -60,9 +60,12 @@ See [`docs/architecture.md`](docs/architecture.md) for a full description of the
 ├── launch/
 │   └── mapping.launch.py        # controller + arm init + LiDAR + joystick + SLAM
 ├── maps/                        # saved maps (.pgm, .yaml, .posegraph)
+├── scripts/
+│   └── run_mapping.sh           # Jetson launch helper for a clean mapping session
 └── docs/
     ├── ROADMAP.md               # goals, success criteria, and milestones
     ├── architecture.md
+    ├── cross_machine_dds.md     # host ↔ Jetson ROS 2 discovery troubleshooting
     └── images/
 ```
 
@@ -72,7 +75,13 @@ See [`docs/architecture.md`](docs/architecture.md) for a full description of the
 
 **On the Jetson (Humble):**
 
-All dependencies are declared in `package.xml` and installed automatically by `rosdep` (see Getting Started). The key package is `slam_toolbox`. HiWonder packages (`controller`, `peripherals`) are pre-installed on the Jetson and not managed by rosdep.
+Launch-time dependencies are declared in `package.xml` and installed automatically by `rosdep` (see Getting Started). The key community package is `slam_toolbox`. HiWonder packages (`controller`, `peripherals`) are pre-installed on the Jetson and not managed by rosdep.
+
+The map-saving command uses Nav2's map server CLI. Install it if it is not already available on the Jetson:
+
+```zsh
+sudo apt install ros-humble-nav2-map-server
+```
 
 **On the host (Humble):**
 ```zsh
@@ -119,27 +128,62 @@ rosdep install --from-paths src --ignore-src -r -y
 colcon build --symlink-install
 source install/setup.zsh
 
-# Launch the full mapping stack (controller + arm init + LiDAR + joystick + SLAM)
-ros2 launch two_d_lidar_mapping_with_slam mapping.launch.py
+# Launch the full mapping stack from a clean state
+zsh ~/jetson_ws/src/2D-LiDAR-Mapping-with-SLAM/scripts/run_mapping.sh
 ```
 
-Drive the robot with the gamepad. On the host, open RViz2 with the pre-configured layout:
+`scripts/run_mapping.sh` stops the vendor auto-start service, kills leftover mapping nodes, sources the Jetson ROS workspaces, restarts the ROS 2 daemon with the FastDDS profile, sets the JetRover environment variables, and then launches `mapping.launch.py`.
+
+Drive the robot with the gamepad. On the host, open RViz2 with the pre-configured layout. Use the source-tree path if running from a checkout:
 
 ```zsh
-rviz2 -d /config/rviz/mapping.rviz
-# or load it via File → Open Config inside RViz2
+cd /path/to/2D-LiDAR-Mapping-with-SLAM
+rviz2 -d config/rviz/mapping.rviz
 ```
 
-When done, save the map (run on the Jetson while the stack is still up):
+If the package is installed in a colcon workspace on the host, the same config is also installed under the package share directory:
 
 ```zsh
-# Standard map files (.pgm + .yaml) for nav2
-ros2 run nav2_map_server map_saver_cli -f /2D-LiDAR-Mapping-with-SLAM/maps/
+rviz2 -d "$(ros2 pkg prefix two_d_lidar_mapping_with_slam)/share/two_d_lidar_mapping_with_slam/config/rviz/mapping.rviz"
+```
 
-# Pose graph (.data + .posegraph) — lets you resume mapping in a future session
+When done, save the map from the Jetson while the mapping stack is still running. Pass a filename prefix, not just a directory:
+
+```zsh
+cd ~/jetson_ws/src/2D-LiDAR-Mapping-with-SLAM
+
+# Standard map files (.pgm + .yaml) for Nav2
+ros2 run nav2_map_server map_saver_cli -f maps/apartment
+
+# Pose graph (.data + .posegraph) for resuming or inspecting the SLAM session
 ros2 service call /slam_toolbox/serialize_map slam_toolbox/srv/SerializePoseGraph \
   "{filename: '/home/ubuntu/jetson_ws/src/2D-LiDAR-Mapping-with-SLAM/maps/apartment'}"
 ```
+
+Keep the `.yaml` `image:` field and the `.pgm` filename synchronized when copying or renaming saved maps; Nav2 loads the image path relative to the YAML file.
+
+### Mapping session checklist
+
+Run these checks before driving a long loop:
+
+```zsh
+ros2 topic hz /scan
+ros2 topic hz /odom
+ros2 run tf2_ros tf2_echo map base_footprint
+ros2 topic echo /map --once
+```
+
+- `/scan` confirms the RPLidar A1 driver and filter chain are publishing.
+- `/odom` confirms the vendor controller stack is publishing odometry.
+- `tf2_echo map base_footprint` confirms `slam_toolbox` has connected the `map → odom → base_footprint` chain.
+- `/map` confirms RViz2 and `map_saver_cli` should be able to consume the live occupancy grid.
+
+### Common pitfalls
+
+- If RViz2 shows `Frame [map] does not exist`, verify `/scan`, `/odom`, and `map → base_footprint` in that order. SLAM cannot publish `map` until scans and odometry are both available through TF.
+- If the robot model flickers in RViz2, check for duplicate `/joint_states` or `/robot_description` publishers. `mapping.launch.py` intentionally lets the vendor `controller` stack own robot description and joint state publication.
+- If the host cannot see Jetson topics, use the FastDDS unicast setup in [`docs/cross_machine_dds.md`](docs/cross_machine_dds.md). Consumer WiFi routers often block DDS multicast between clients.
+- If a saved map will not load, check that `maps/<name>.yaml` references an existing `maps/<name>.pgm`.
 
 ---
 
@@ -183,9 +227,9 @@ Matches the expected `map → odom → base_footprint → base_link → lidar_li
 | Package | Type | Role | Docs / Source |
 |---------|------|------|---------------|
 | `slam_toolbox` | Community | SLAM — builds the map, publishes `map → odom` TF | [GitHub](https://github.com/SteveMacenski/slam_toolbox) |
-| `robot_localization` (ekf_filter_node) | Community | Fuses wheel odometry, publishes `odom → base_footprint` TF | [GitHub](https://github.com/cra-ros-pkg/robot_localization) · [Docs](https://docs.ros.org/en/humble/p/robot_localization/) |
-| `laser_filters` (scan_to_scan_filter_chain) | Official ROS | Filters raw LiDAR scan before SLAM | [GitHub](https://github.com/ros-perception/laser_filters) · [Docs](https://docs.ros.org/en/humble/p/laser_filters/) |
-| `sllidar_ros2` (sllidar_node) | Hardware vendor (SLAMTEC, open source) | RPLidar A1 hardware driver | [GitHub](https://github.com/Slamtec/sllidar_ros2) |
-| `ros_robot_controller` | Vendor (HiWonder, **closed source**) | Serial protocol driver to motor board — hardware interface | Pre-installed on Jetson |
-| `controller` | Vendor (HiWonder, **closed source**) | Wheel odometry, EKF, servo control, arm init pose | Pre-installed on Jetson |
-| `peripherals` | Vendor (HiWonder, **closed source**) | LiDAR driver launch, joystick control node | Pre-installed on Jetson |
+| `nav2_map_server` (`map_saver_cli`) | Community | Saves `/map` to `.yaml` + `.pgm` files on demand | [Docs](https://docs.nav2.org/configuration/packages/map_server/configuring-map-saver.html) |
+| `controller` | Vendor (HiWonder, **closed source**) | Motor controller, wheel odometry + EKF, `odom → base_footprint` TF, robot description, joint states, arm init pose | Pre-installed on Jetson |
+| `peripherals` | Vendor (HiWonder, **closed source**) | LiDAR launch, filtered `/scan`, joystick control node | Pre-installed on Jetson |
+| `sllidar_ros2` (wrapped by `peripherals`) | Hardware vendor (SLAMTEC, open source) | RPLidar A1 hardware driver | [GitHub](https://github.com/Slamtec/sllidar_ros2) |
+| `laser_filters` (wrapped by `peripherals`) | Official ROS | Filters raw LiDAR scan before SLAM | [GitHub](https://github.com/ros-perception/laser_filters) · [Docs](https://docs.ros.org/en/humble/p/laser_filters/) |
+| `ros_robot_controller` (used by `controller`) | Vendor (HiWonder, **closed source**) | Serial protocol driver to the motor board and hardware controller | Pre-installed on Jetson |

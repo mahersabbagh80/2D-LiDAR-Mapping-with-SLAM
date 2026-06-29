@@ -59,7 +59,7 @@ After SPDP (participant discovery) completes, DDS must run SEDP (endpoint discov
 
 ### FastDDS XML Profile
 
-Each machine needs a `~/fastdds.xml` file. The profile disables multicast reliance and explicitly probes 100 participant IDs on the other machine.
+Each machine needs a `~/fastdds.xml` file. The profile does not rely on multicast-only discovery; it explicitly probes 100 participant IDs on the other machine.
 
 **Jetson** (`~/fastdds.xml`):
 ```xml
@@ -106,6 +106,8 @@ def gen_xml(target_ip, max_id=100):
 # PC:     target_ip = 192.168.2.138 (Jetson)
 ```
 
+Keep the normal built-in transports enabled. Do **not** add `<avoid_builtin_multicast>true</avoid_builtin_multicast>` to the Jetson profile: on this FastDDS/ROS 2 Humble setup it caused local Python ROS publishers to match subscribers but fail to deliver user data. The repository launcher (`scripts/run_mapping.sh`) exports `FASTRTPS_DEFAULT_PROFILES_FILE=~/fastdds.xml`, so an unsafe Jetson profile affects the mapping stack itself, not just host discovery.
+
 ### Environment Variables
 
 Both machines need these set when any ROS 2 process starts:
@@ -118,21 +120,24 @@ export ROS_DOMAIN_ID=0
 On the **Jetson**: this is set in `~/.bashrc` (uncommented).  
 On the **PC**: this is set in `~/.zshrc`.
 
+`scripts/run_mapping.sh` also exports the Jetson profile before launching the mapping stack and restarts the ROS 2 daemon so the daemon and nodes discover the same peers.
+
 ---
 
 ## Usage
 
 On the **Jetson** (open a bash terminal):
 ```bash
-ros2 launch two_d_lidar_mapping_with_slam mapping.launch.py
+zsh ~/jetson_ws/src/2D-LiDAR-Mapping-with-SLAM/scripts/run_mapping.sh
 ```
 
 On the **PC** (open a terminal):
 ```bash
-rviz2
+cd /path/to/2D-LiDAR-Mapping-with-SLAM
+rviz2 -d config/rviz/mapping.rviz
 ```
 
-RViz should discover all topics within ~15 seconds. Add a **Map** display with topic `/map` to see the occupancy grid.
+RViz should discover all topics within ~15 seconds. The repository RViz config already includes the **Map**, **LaserScan**, **TF**, and **RobotModel** displays used for mapping.
 
 ---
 
@@ -170,6 +175,7 @@ sudo /usr/bin/tcpdump -i wlan0 -n 'udp and src host 192.168.2.102' | head -20
 | `initialPeersList` with IP only (no port) | Only probes IDs 0–3, misses most nodes |
 | `useBuiltinTransports=false` | Removes standard RTPS port binding; discovery breaks |
 | `metatrafficUnicastLocatorList` without a port | Advertises port 0 (invalid), SEDP never reaches peers |
+| `<avoid_builtin_multicast>true</avoid_builtin_multicast>` on the Jetson | Can break local ROS data delivery even when discovery appears to work |
 | `initialAnnouncements` XML tag | Invalid in FastDDS 2.6 — silently invalidates the entire profile |
 | Short timeouts when testing (< 6s) | SEDP matching takes 5–15s; looks like failure but isn't |
 

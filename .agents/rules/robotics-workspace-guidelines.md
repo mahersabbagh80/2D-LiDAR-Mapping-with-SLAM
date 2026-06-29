@@ -69,38 +69,11 @@ trigger: always_on
 
 ## Reference: ROS 2 Cross-Machine Network Setup
 
-ROS 2 topics between the Jetson (192.168.2.138) and WSL2 (192.168.2.102) require two fixes applied simultaneously. If discovery breaks after a Windows update or IP change, re-apply both.
+ROS 2 topics between the Jetson (192.168.2.138) and host PC (192.168.2.102) rely on the FastDDS unicast setup documented in `docs/cross_machine_dds.md`.
 
-### Fix 1: FastDDS unicast peer config
+Key constraints to preserve:
 
-**WSL2** — `/home/maher/fastdds.xml`:
-```xml
-<?xml version="1.0" encoding="UTF-8" ?>
-<profiles xmlns="http://www.eprosima.com/XMLSchemas/fastRTPS_Profiles">
-    <participant profile_name="unicast_connection" is_default_profile="true">
-        <rtps>
-            <builtin>
-                <avoid_builtin_multicast>true</avoid_builtin_multicast>
-                <initialPeersList>
-                    <locator><udpv4><address>192.168.2.138</address></udpv4></locator>
-                </initialPeersList>
-            </builtin>
-        </rtps>
-    </participant>
-</profiles>
-```
-
-**Jetson** — `/home/ubuntu/fastdds.xml` (same but peer IP is 192.168.2.102).
-
-Both machines have this in `~/.zshrc`:
-```zsh
-export FASTRTPS_DEFAULT_PROFILES_FILE=~/fastdds.xml
-```
-
-### Fix 2: Windows Firewall rule (run once as Administrator in PowerShell)
-
-```powershell
-New-NetFirewallRule -DisplayName "ROS2 DDS - Allow UDP from LAN" -Direction Inbound -Protocol UDP -RemoteAddress 192.168.2.0/24 -Action Allow
-```
-
-> IPs are hardcoded — if either machine gets a new DHCP lease, update the peer address in both `fastdds.xml` files.
+- Both machines need `FASTRTPS_DEFAULT_PROFILES_FILE=~/fastdds.xml` when ROS 2 processes start.
+- The FastDDS profile should explicitly list unicast locators for participant ports 7410-7608 on the peer machine.
+- Do **not** set `<avoid_builtin_multicast>true</avoid_builtin_multicast>` on the Jetson profile; this setup previously caused ROS 2 discovery to appear healthy while local publisher data failed to reach subscribers.
+- IPs are hardcoded. If either machine gets a new DHCP lease, update the peer address in both `fastdds.xml` files.

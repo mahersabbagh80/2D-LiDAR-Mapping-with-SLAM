@@ -10,7 +10,7 @@
 
 ```
 controller  ──/robot_description + TF: base_link→lidar_link──►  RViz2 (3D model)
-controller  ──/odom + TF: odom→base_fp──►  slam_toolbox  ──/map──►  RViz2
+controller  ──/odom + TF: odom→base_footprint──►  slam_toolbox  ──/map──►  RViz2
                                                   ▲                   map_saver_cli
 peripherals ──/scan───────────────────────────────┘
 ```
@@ -20,6 +20,20 @@ peripherals ──/scan───────────────────
 - `peripherals` (HiWonder, wraps `sllidar_ros2`) reads the RPLidar A1 and publishes `/scan`.
 - `slam_toolbox` consumes `/scan` and the TF tree to build the occupancy-grid map and publish it on `/map`.
 - RViz2 displays the live map and the 3D robot model; `map_saver_cli` saves the map to disk at the end of a session.
+
+### Launch composition
+
+The mapping stack is launched by `launch/mapping.launch.py`. The helper script `scripts/run_mapping.sh` is the recommended Jetson entry point because it stops stale robot processes, sources the required ROS workspaces, restarts the ROS 2 daemon with the FastDDS profile, exports the JetRover environment variables, and then invokes the launch file.
+
+| Launch component | Package | Owns / publishes |
+|------------------|---------|------------------|
+| `controller.launch.py` | `controller` | motor controller, `/odom`, `odom → base_footprint`, `/robot_description`, `/joint_states`, robot link TF |
+| `init_pose.launch.py` | `controller` | sends the arm to the configured resting servo pose after controller startup |
+| `lidar.launch.py` | `peripherals` | RPLidar A1 driver and laser filter chain, publishing `/scan` |
+| `joystick_control.launch.py` | `peripherals` | gamepad teleoperation commands on `controller/cmd_vel` |
+| `async_slam_toolbox_node` | `slam_toolbox` | `/map`, `map → odom`, pose graph serialization services |
+
+The project launch file does **not** start its own `robot_state_publisher`, `joint_state_publisher`, or EKF. Those interfaces are already owned by the HiWonder `controller` stack; duplicating them causes conflicting robot model and TF publishers in RViz2.
 
 ### Teleoperation — gamepad to wheels
 
@@ -84,3 +98,24 @@ map
 - `lidar_frame` — the LiDAR sensor origin; a static transform relative to `base_link` defined in the URDF. This is the frame that SLAM uses to place each scan correctly in the map.
 
 When `slam_toolbox` receives a laser scan, it looks up the TF tree to find where `lidar_frame` was in the room at that exact timestamp — that is how it places each scan correctly in the map.
+
+---
+
+## Map outputs and persistence
+
+During a live mapping session, `slam_toolbox` publishes the current occupancy grid on `/map`. Saving the standard Nav2 map is an operator action:
+
+```bash
+ros2 run nav2_map_server map_saver_cli -f maps/apartment
+```
+
+The `-f` argument is a filename prefix. It produces `maps/apartment.yaml` and `maps/apartment.pgm`, and the YAML `image:` field must continue to point at the PGM file if the map is moved or renamed.
+
+For SLAM-specific reuse, serialize the pose graph while `slam_toolbox` is still running:
+
+```bash
+ros2 service call /slam_toolbox/serialize_map slam_toolbox/srv/SerializePoseGraph \
+  "{filename: '/home/ubuntu/jetson_ws/src/2D-LiDAR-Mapping-with-SLAM/maps/apartment'}"
+```
+
+That service writes the pose graph files used by `slam_toolbox`; it is separate from the Nav2 occupancy-grid YAML/PGM pair.
