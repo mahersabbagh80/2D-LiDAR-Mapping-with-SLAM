@@ -21,6 +21,26 @@ peripherals ──/scan───────────────────
 - `slam_toolbox` consumes `/scan` and the TF tree to build the occupancy-grid map and publish it on `/map`.
 - RViz2 displays the live map and the 3D robot model; `map_saver_cli` saves the map to disk at the end of a session.
 
+### C++ scan-health monitoring
+
+```mermaid
+flowchart LR
+    lidar["Vendor LiDAR driver"] -->|"/scan · LaserScan"| slam["SLAM Toolbox"]
+    lidar -->|"same /scan, observed only"| monitor["C++17 scan_diagnostics_node"]
+    monitor -->|"/diagnostics · DiagnosticArray"| tools["ROS CLI / diagnostic tools"]
+    slam -->|"/map"| rviz["RViz2"]
+```
+
+`scan_diagnostics_node` subscribes using `rclcpp::SensorDataQoS`, which accepts best-effort sensor publishers. Its scan-analysis library checks range/angle metadata, frame presence, array consistency, and finite in-range measurements. Positive infinity is counted as a no-return measurement; NaN, negative infinity, and finite out-of-range samples are counted separately as invalid.
+
+A wall timer publishes diagnostics, even before the first scan arrives. Receipt freshness uses `std::chrono::steady_clock`, so paused simulation time and ROS clock jumps do not suppress a timeout. The node keeps only the most recent analysis and uses the default mutually exclusive callback group. Its callback state is serialized even if a multithreaded executor is used. Range analysis takes O(n) time and O(1) additional storage.
+
+The monitor is a parallel observer: the existing `/scan → slam_toolbox` path, frame IDs, SLAM parameters, and motor-control topics are unchanged. An `expected_frame` parameter optionally checks an exact frame name. It does not validate TF availability, estimate localization accuracy, filter scans, or provide a motor safety interlock.
+
+`mapping.launch.xml` preserves the original hardware launch action order and enables diagnostics by default. It still includes the vendor-owned Python launch files. The `start_robot` and `start_slam` arguments default to `true`; disabling both lets a cloud developer exercise the XML launch and diagnostics without hardware dependencies. `enable_diagnostics:=false` disables the new observer. Launch actions starting in order do not guarantee that hardware nodes are ready in that order; vendor readiness behavior is unchanged.
+
+`diagnostics_demo.launch.xml` starts the C++ synthetic publisher and the same diagnostics executable on `/demo/scan` and `/demo/diagnostics`. It exercises sensor-health states without publishing robot commands or changing the real scan topic. See [the portfolio guide](cpp_portfolio.md) for the executable boundaries and interview explanation.
+
 ### Teleoperation — gamepad to wheels
 
 ```
@@ -53,6 +73,7 @@ peripherals (joystick_control)  ──controller/cmd_vel──►  controller  �
 | `controller/cmd_vel` | `geometry_msgs/Twist` | `peripherals` (joystick_control) | `controller` |
 | `/map` | `nav_msgs/OccupancyGrid` | `slam_toolbox` | RViz2, `map_saver_cli` |
 | `/tf` | `tf2_msgs/TFMessage` | `controller`, `slam_toolbox` | all nodes |
+| `/diagnostics` | `diagnostic_msgs/DiagnosticArray` | `scan_diagnostics_node` | ROS CLI / diagnostic tools |
 
 - `/robot_description` — the full URDF as a string, published once with Transient Local QoS so late-joining subscribers (like RViz2 on the dev machine) still receive it.
 - `/joint_states` — arm and gripper joint angles read from the hardware servos at ~12 Hz; fed into `robot_state_publisher` so the arm renders correctly in RViz2.

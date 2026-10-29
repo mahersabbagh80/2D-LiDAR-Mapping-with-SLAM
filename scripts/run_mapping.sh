@@ -16,7 +16,7 @@ sleep 3
 source /opt/ros/humble/local_setup.zsh
 source /home/ubuntu/ros2_ws/install/local_setup.zsh
 source /home/ubuntu/third_party_ros2/third_party_ws/install/local_setup.zsh
-source /home/ubuntu/my_projects/mapping_ws/install/local_setup.zsh
+source "${MAPPING_INSTALL_PREFIX:-/home/ubuntu/my_projects/mapping_ws/install}/local_setup.zsh"
 
 # Restart the daemon so it picks up the FASTRTPS config and re-discovers peers
 ros2 daemon stop 2>/dev/null || true
@@ -33,4 +33,4 @@ export DEPTH_CAMERA_TYPE=Dabai
 export ASR_LANGUAGE=English
 export MIC_TYPE=WonderEchoPro
 export LD_PRELOAD=/home/ubuntu/third_party_ros2/Open3D/build/lib/Release/libOpen3D.so
-exec ros2 launch two_d_lidar_mapping_with_slam mapping.launch.py
+exec ros2 launch two_d_lidar_mapping_with_slam mapping.launch.xml

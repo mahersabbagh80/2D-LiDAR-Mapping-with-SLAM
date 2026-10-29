@@ -1,6 +1,6 @@
 # 2D-LiDAR-Mapping-with-SLAM
 
-Teleoperated 2-D occupancy-grid mapping with a JetRover, ROS 2, LiDAR, and SLAM — visualised live in RViz2.
+ROS 2 Humble mapping integration for a JetRover, with C++17 LiDAR diagnostics, XML launch files, and live RViz2 visualization.
 
 ---
 
@@ -8,7 +8,11 @@ Teleoperated 2-D occupancy-grid mapping with a JetRover, ROS 2, LiDAR, and SLAM 
 
 Drive the HiWonder JetRover around a room while `slam_toolbox` builds a 2-D occupancy-grid map from LiDAR scans and wheel odometry. Save the map to disk when done.
 
-This is the first project in a progressive JetRover series. The goal is to get a working SLAM pipeline on real hardware — nothing more.
+This is the first project in a progressive JetRover series. The package combines a real-hardware mapping pipeline with a C++ scan-health monitor and a hardware-free diagnostic demo. SLAM is provided by the existing `slam_toolbox` package; this repository does not implement a new SLAM algorithm.
+
+The repository-owned implementation uses C++17 and `ament_cmake`. Launch orchestration is XML. ROS tooling and the included HiWonder vendor launch files still depend on Python.
+
+For implementation details, a demonstration script, and interview preparation, see [the C++ portfolio guide](docs/cpp_portfolio.md).
 
 ---
 
@@ -55,10 +59,16 @@ See [`docs/architecture.md`](docs/architecture.md) for a full description of the
 │   ├── slam_toolbox_params.yaml
 │   └── rviz/
 │       └── mapping.rviz
-├── two_d_lidar_mapping_with_slam/
-│   └── __init__.py
+├── CMakeLists.txt              # ament_cmake build, installation, and tests
+├── include/two_d_lidar_mapping_with_slam/
+│   ├── scan_analysis.hpp       # scan validation and statistics
+│   └── scan_diagnostics_node.hpp
+├── src/                       # C++17 diagnostics and synthetic scan publisher
+├── test/                      # C++ unit and ROS integration tests
 ├── launch/
-│   └── mapping.launch.py        # controller + arm init + LiDAR + joystick + SLAM
+│   ├── mapping.launch.xml     # vendor hardware + SLAM + diagnostics
+│   ├── scan_diagnostics.launch.xml
+│   └── diagnostics_demo.launch.xml
 ├── maps/                        # saved maps (.pgm, .yaml, .posegraph)
 └── docs/
     ├── ROADMAP.md               # goals, success criteria, and milestones
@@ -72,7 +82,7 @@ See [`docs/architecture.md`](docs/architecture.md) for a full description of the
 
 **On the Jetson (Humble):**
 
-All dependencies are declared in `package.xml` and installed automatically by `rosdep` (see Getting Started). The key package is `slam_toolbox`. HiWonder packages (`controller`, `peripherals`) are pre-installed on the Jetson and not managed by rosdep.
+Dependencies are declared in `package.xml`. C++ development requires `rclcpp`, `rcl_interfaces`, `sensor_msgs`, and `diagnostic_msgs`; tests use `ament_cmake_gtest`. The mapping runtime requires `slam_toolbox` and `nav2_map_server`. HiWonder packages (`controller`, `peripherals`) are pre-installed on the Jetson and are not available from the public ROS package index.
 
 **On the host (Humble):**
 ```zsh
@@ -84,11 +94,11 @@ sudo apt install ros-humble-tf2-tools          # optional, for host-side TF debu
 
 ## Development Workflow
 
-All development runs on the Jetson. The recommended approach is to edit code locally and push to git, then pull and build on the robot.
+Develop and test the C++ diagnostics on any Ubuntu 22.04 / ROS 2 Humble machine, or in the matching container. Deploy and validate the full mapping stack on the Jetson. The synthetic demo requires no vendor packages, robot, or display.
 
 **Access the robot:**
 ```zsh
-ssh ubuntu@192.168.2.138   # password: ubuntu
+ssh ubuntu@192.168.2.138
 ```
 
 For visualization, run RViz2 natively on your host machine — it connects to the Jetson over DDS.
@@ -113,20 +123,20 @@ git clone https://github.com/mahersabbagh80/2D-LiDAR-Mapping-with-SLAM.git
 # Install dependencies
 cd ~/jetson_ws
 rosdep update
-rosdep install --from-paths src --ignore-src -r -y
+rosdep install --from-paths src --ignore-src -y --skip-keys="controller peripherals"
 
 # Build
-colcon build --symlink-install
+colcon build --symlink-install --packages-select two_d_lidar_mapping_with_slam --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo
 source install/setup.zsh
 
 # Launch the full mapping stack (controller + arm init + LiDAR + joystick + SLAM)
-ros2 launch two_d_lidar_mapping_with_slam mapping.launch.py
+ros2 launch two_d_lidar_mapping_with_slam mapping.launch.xml
 ```
 
 Drive the robot with the gamepad. On the host, open RViz2 with the pre-configured layout:
 
 ```zsh
-rviz2 -d /config/rviz/mapping.rviz
+rviz2 -d "$(ros2 pkg prefix --share two_d_lidar_mapping_with_slam)/config/rviz/mapping.rviz"
 # or load it via File → Open Config inside RViz2
 ```
 
@@ -140,6 +150,43 @@ ros2 run nav2_map_server map_saver_cli -f /2D-LiDAR-Mapping-with-SLAM/maps/
 ros2 service call /slam_toolbox/serialize_map slam_toolbox/srv/SerializePoseGraph \
   "{filename: '/home/ubuntu/jetson_ws/src/2D-LiDAR-Mapping-with-SLAM/maps/apartment'}"
 ```
+
+---
+
+## C++ development and hardware-free demo
+
+In a clean ROS 2 Humble workspace containing this repository under `src/`:
+
+```bash
+source /opt/ros/humble/setup.bash
+colcon build --packages-select two_d_lidar_mapping_with_slam \
+  --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo -DBUILD_TESTING=ON
+source install/setup.bash
+colcon test --packages-select two_d_lidar_mapping_with_slam --return-code-on-test-failure
+colcon test-result --verbose
+
+# Terminal 1: cycles through healthy → degraded → malformed → missing → recovered
+ros2 launch two_d_lidar_mapping_with_slam diagnostics_demo.launch.xml
+# Terminal 2, after sourcing the same workspace:
+ros2 topic echo /demo/diagnostics
+```
+
+The demo uses `/demo/scan` and `/demo/diagnostics`, keeping synthetic data separate from the real `/scan` stream. Each phase lasts five seconds; the sequence repeats every 25 seconds. Stop it with Ctrl+C. This demonstrates diagnostics, not SLAM or simulated robot motion.
+
+Monitor a real or recorded scan stream independently:
+
+```bash
+ros2 launch two_d_lidar_mapping_with_slam scan_diagnostics.launch.xml scan_topic:=/scan
+ros2 topic echo /diagnostics
+```
+
+The C++ node uses sensor-data QoS and reports `OK`, `WARN`, `ERROR`, or `STALE`. It never changes scan messages, TF, odometry, or motor commands. Configuration lives in `config/scan_diagnostics.yaml`; parameters are read-only after startup. A low finite-return fraction is a heuristic warning: open space can legitimately produce many infinite/no-return measurements. The monitor checks receipt freshness, not sensor timestamp correctness or TF availability.
+
+**Migrating an existing Python build:** use fresh build/install directories to avoid loading stale Python launch artifacts. See [migration instructions](docs/cpp_portfolio.md#migrating-the-existing-workspace). The old implementation remains in Git history.
+
+## Validation scope
+
+The original apartment mapping results below were produced by the earlier hardware integration. The C++ migration is validated separately using Humble builds, C++ tests, and synthetic diagnostic messages; see [validation evidence](docs/validation.md). The updated full mapping launch must still be checked on the Jetson with its vendor packages and real sensors.
 
 ---
 

@@ -1,0 +1,7 @@
+scan_diagnostics:
+  ros__parameters:
+    scan_topic: /scan
+    expected_frame: ""          # Optional exact frame check; empty accepts any nonempty frame.
+    scan_timeout_sec: 1.0       # Monotonic time since last received scan.
+    publish_period_sec: 1.0
+    min_valid_fraction: 0.1     # Fraction of finite returns inside [range_min, range_max].

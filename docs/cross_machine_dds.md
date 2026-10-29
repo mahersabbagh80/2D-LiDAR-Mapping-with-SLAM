@@ -124,7 +124,7 @@ On the **PC**: this is set in `~/.zshrc`.
 
 On the **Jetson** (open a bash terminal):
 ```bash
-ros2 launch two_d_lidar_mapping_with_slam mapping.launch.py
+ros2 launch two_d_lidar_mapping_with_slam mapping.launch.xml
 ```
 
 On the **PC** (open a terminal):

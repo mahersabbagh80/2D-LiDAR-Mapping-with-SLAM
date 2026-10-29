@@ -2,6 +2,9 @@
 build/
 install/
 log/
+build_cpp/
+install_cpp/
+log_cpp/
 
 # Python cache and metadata
 __pycache__/

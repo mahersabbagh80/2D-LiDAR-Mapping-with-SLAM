@@ -545,6 +545,16 @@ It complements the `README.md` (which explains what the project is and how to ru
 
 ---
 
+## 2026-10-29 — C++ diagnostics and package migration
+
+- **Goal:** extend the mapping project with a defensible C++ implementation and a reproducible demonstration for an application portfolio.
+- **Changes:** replace repository-owned Python packaging/launch with CMake and XML; add a C++17 scan-analysis library, ROS diagnostic node, and synthetic demo publisher. Keep the original scan-to-SLAM path and SLAM parameters unchanged. Vendor-owned Python launch dependencies remain.
+- **Validation:** Humble x86-64 container build passed; all 14 GoogleTest cases and the XML launch/demo smoke check passed, including real ROS message-based fault/recovery behavior with paused simulation time. The smoke test observed the expected healthy/degraded/malformed/stale/recovered sequence from the installed C++ executables. See [the validation record](validation.md) for counts and scope.
+- **Documentation:** add C++ walkthrough, migration steps, live-demo instructions, and interview preparation in [the portfolio guide](cpp_portfolio.md). Add a pinned Humble CI workflow.
+- **Outstanding:** Jetson/ARM64 build and full hardware mapping acceptance. The original apartment results predate this migration. The pre-existing map-image filename mismatch is documented and left unchanged.
+
+---
+
 ## Template — copy/paste for new entries
 
 ## YYYY-MM-DD — <short title>

@@ -1,0 +1,21 @@
+<launch>
+  <!-- The vendor launch files remain vendor-owned Python dependencies. -->
+  <arg name="start_robot" default="true" description="Include JetRover vendor hardware launches"/>
+  <arg name="start_slam" default="true" description="Start SLAM Toolbox"/>
+  <arg name="enable_diagnostics" default="true"/>
+  <arg name="diagnostics_params" default="$(find-pkg-share two_d_lidar_mapping_with_slam)/config/scan_diagnostics.yaml"/>
+
+  <!-- Preserve the original launch action order and vendor defaults. -->
+  <group if="$(var start_robot)" scoped="false">
+    <include file="$(find-pkg-share controller)/launch/controller.launch.py"/>
+    <include file="$(find-pkg-share peripherals)/launch/joystick_control.launch.py"/>
+    <include file="$(find-pkg-share controller)/launch/init_pose.launch.py"/>
+    <include file="$(find-pkg-share peripherals)/launch/lidar.launch.py"/>
+  </group>
+  <node if="$(var start_slam)" pkg="slam_toolbox" exec="async_slam_toolbox_node" name="slam_toolbox" output="screen">
+    <param from="$(find-pkg-share two_d_lidar_mapping_with_slam)/config/slam_toolbox_params.yaml"/>
+  </node>
+  <include if="$(var enable_diagnostics)" file="$(find-pkg-share two_d_lidar_mapping_with_slam)/launch/scan_diagnostics.launch.xml">
+    <arg name="params_file" value="$(var diagnostics_params)"/>
+  </include>
+</launch>

@@ -1,0 +1,32 @@
+name: ROS 2 Humble C++
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-22.04
+    container:
+      image: ros:humble-ros-base-jammy@sha256:d9bcf2e6f72df127fdee07048c2e87b1b4b9a59a74af0592f4489fc2844aa855
+    env:
+      ROS_DOMAIN_ID: 43
+      ROS_LOCALHOST_ONLY: 1
+      CMAKE_BUILD_PARALLEL_LEVEL: 2
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      # Vendor hardware packages and SLAM are runtime dependencies; these tests
+      # exercise our C++ diagnostics without requiring a physical JetRover.
+      - name: Build C++ nodes and tests
+        run: |
+          source /opt/ros/humble/setup.bash
+          colcon build --packages-select two_d_lidar_mapping_with_slam --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo -DBUILD_TESTING=ON
+      - name: Run unit, ROS integration, and XML launch tests
+        run: |
+          source /opt/ros/humble/setup.bash
+          source install/setup.bash
+          colcon test --packages-select two_d_lidar_mapping_with_slam --return-code-on-test-failure --event-handlers console_direct+
+          colcon test-result --verbose
