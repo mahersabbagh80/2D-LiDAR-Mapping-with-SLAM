@@ -74,7 +74,7 @@ The default callback group is mutually exclusive: scan and timer callbacks canno
 
 ## Configuration
 
-Edit a copy of `config/scan_diagnostics.yaml` and pass it with `params_file:=/absolute/path/to/file.yaml` to the standalone launch. These parameters are validated at startup and read-only afterward; restart the node to apply changes.
+Edit a copy of `config/scan_diagnostics.yaml` and pass it with `params_file:=/absolute/path/to/file.yaml` to the standalone launch. The YAML `scan_topic` is used unless a nonempty `scan_topic:=...` launch argument explicitly overrides it. These parameters are validated at startup and read-only afterward; restart the node to apply changes.
 
 | Parameter | Default | Purpose |
 |---|---|---|

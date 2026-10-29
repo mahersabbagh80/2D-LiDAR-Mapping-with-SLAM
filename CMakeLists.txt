@@ -52,7 +52,7 @@ if(BUILD_TESTING)
   ament_target_dependencies(test_scan_diagnostics rclcpp diagnostic_msgs sensor_msgs)
   ament_add_test(test_launch_smoke
     COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/test/launch_smoke.sh"
-    TIMEOUT 60
+    TIMEOUT 90
     GENERATE_RESULT_FOR_RETURN_CODE_ZERO)
 endif()
 

@@ -1,7 +1,11 @@
 <launch>
-  <arg name="scan_topic" default="/scan" description="LaserScan input; scans are never modified"/>
+  <arg name="scan_topic" default="" description="Optional LaserScan topic override; empty uses params_file"/>
   <arg name="params_file" default="$(find-pkg-share two_d_lidar_mapping_with_slam)/config/scan_diagnostics.yaml"/>
-  <node pkg="two_d_lidar_mapping_with_slam" exec="scan_diagnostics_node" name="scan_diagnostics" output="screen">
+  <!-- Only add a topic parameter when an explicit launch override is supplied. -->
+  <node if="$(eval &quot;'$(var scan_topic)' == ''&quot;)" pkg="two_d_lidar_mapping_with_slam" exec="scan_diagnostics_node" name="scan_diagnostics" output="screen">
+    <param from="$(var params_file)"/>
+  </node>
+  <node unless="$(eval &quot;'$(var scan_topic)' == ''&quot;)" pkg="two_d_lidar_mapping_with_slam" exec="scan_diagnostics_node" name="scan_diagnostics" output="screen">
     <param from="$(var params_file)"/>
     <param name="scan_topic" value="$(var scan_topic)"/>
   </node>
