@@ -1,0 +1,8 @@
+<launch>
+  <arg name="scan_topic" default="/scan" description="LaserScan input; scans are never modified"/>
+  <arg name="params_file" default="$(find-pkg-share two_d_lidar_mapping_with_slam)/config/scan_diagnostics.yaml"/>
+  <node pkg="two_d_lidar_mapping_with_slam" exec="scan_diagnostics_node" name="scan_diagnostics" output="screen">
+    <param from="$(var params_file)"/>
+    <param name="scan_topic" value="$(var scan_topic)"/>
+  </node>
+</launch>

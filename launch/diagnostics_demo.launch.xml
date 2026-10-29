@@ -1,0 +1,12 @@
+<launch>
+  <!-- Isolated synthetic input/output topics: never inject demo scans into /scan. -->
+  <node pkg="two_d_lidar_mapping_with_slam" exec="scan_demo_node" name="scan_demo" output="screen"/>
+  <node pkg="two_d_lidar_mapping_with_slam" exec="scan_diagnostics_node" name="scan_diagnostics" output="screen">
+    <param name="scan_topic" value="/demo/scan"/>
+    <param name="expected_frame" value="demo_lidar"/>
+    <param name="min_valid_fraction" value="0.1"/>
+    <param name="scan_timeout_sec" value="1.0"/>
+    <param name="publish_period_sec" value="0.5"/>
+    <remap from="/diagnostics" to="/demo/diagnostics"/>
+  </node>
+</launch>

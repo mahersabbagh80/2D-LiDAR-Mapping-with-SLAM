@@ -33,8 +33,8 @@ digraph pipeline {
     // ── Column ordering ──────────────────────────────────
     {rank=same; lidar; chassis; joystick}
     {rank=same; peripherals; controller}
-    {rank=same; slam}
-    {rank=same; map_saver; rviz}
+    {rank=same; slam; monitor}
+    {rank=same; map_saver; rviz; diagnostic_tools}
     {rank=same; saved_map; live_map; motion}
 
     // Invisible vertical-ordering edges within each column
@@ -42,6 +42,7 @@ digraph pipeline {
     lidar    -> chassis  [style=invis weight=10]
     peripherals -> controller [style=invis weight=10]
     map_saver -> rviz    [style=invis weight=10]
+    slam -> monitor [style=invis weight=10]
     saved_map -> live_map -> motion [style=invis weight=10]
 
     // ── INPUT nodes (teal green) ─────────────────────────
@@ -81,6 +82,19 @@ digraph pipeline {
         height=1.4
     ]
 
+    monitor [
+        label=<<b>C++ scan diagnostics</b><br align="center"/><font point-size="9">structure · range statistics<br align="center"/>receipt timeout · recovery</font>>
+        fillcolor="#FFF3CD" color="#B8860B" fontcolor="#664D03"
+        width=2.1
+        height=0.9
+    ]
+
+    diagnostic_tools [
+        label=<<b>ROS diagnostic tools</b><br align="center"/><font point-size="9">health state + measurements</font>>
+        fillcolor="#FAECE7" color="#993C1D" fontcolor="#4A1B0C"
+        height=0.65
+    ]
+
     // ── TOOL nodes (salmon/red) ──────────────────────────
     map_saver [
         label=<<b>map_saver_cli</b><br align="center"/><font point-size="9" color="#712B13">saves map on demand</font>>
@@ -115,6 +129,8 @@ digraph pipeline {
     chassis     -> controller   []
     joystick    -> peripherals  []
     peripherals -> slam         [label="  /scan"]
+    peripherals -> monitor      [label="  /scan (observe only)" style=dashed]
+    monitor     -> diagnostic_tools [label="  /diagnostics"]
     controller  -> slam         [label="  /odom + TF"]
     slam        -> map_saver    [label="  /map"]
     slam        -> rviz         [label="  /map"]

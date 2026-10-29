@@ -70,3 +70,19 @@
   ```
 
 **Done when:** Driving a closed loop produces a recognisable map; robot model visible in RViz2; `.pgm`, `.yaml`, and `.posegraph` files saved and committed.
+
+---
+
+### C++ portfolio extension
+
+The milestones above describe the original hardware integration. The repository-owned launch has since migrated from `mapping.launch.py` to `mapping.launch.xml`.
+
+- [x] Migrate package build from `ament_python` to C++17 / `ament_cmake`.
+- [x] Preserve mapping orchestration in a supported XML launch format.
+- [x] Add a passive C++ scan-health monitor with standard ROS diagnostics.
+- [x] Add a C++ synthetic scan publisher and isolated hardware-free demo.
+- [x] Validate scan analysis and ROS fault/recovery behavior using C++ tests.
+- [x] Document implementation boundaries, migration, demonstration, and interview explanation.
+- [ ] Validate the migrated full mapping stack on the Jetson and record new hardware evidence.
+
+See [validation scope](validation.md) and [the portfolio guide](cpp_portfolio.md).
